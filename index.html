@@ -11,16 +11,15 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0d14;color:#e2e8f0}
-::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:#0d1120}
 ::-webkit-scrollbar-thumb{background:#2e3347;border-radius:3px}
 input,textarea,select{background:#1a1f35;border:1px solid #252b42;color:#e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;width:100%;transition:border-color .2s}
 input:focus,textarea:focus,select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px #6366f115}
 input::placeholder,textarea::placeholder{color:#3d4460}
 button{cursor:pointer;font-family:inherit;transition:all .15s}
-label{font-size:11px;color:#64748b;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+label{font-size:11px;color:#64748b;display:block;margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
 </style>
 </head>
 <body>
@@ -28,305 +27,76 @@ label{font-size:11px;color:#64748b;display:block;margin-bottom:5px;font-weight:5
 <script type="text/babel">
 const {useState,useEffect,useRef,useMemo,useCallback}=React;
 
-// ══════════════════════════════════════════════════════════════════════
-//  STORAGE ENGINE
-//  ─ Text/metadata  → localStorage  (stable keys, never changes)
-//  ─ Images         → IndexedDB as Blob  (NOT dataURL, NOT objectURL)
-//    Why Blob?  dataURL strings are huge text (33% overhead) and still
-//    live in RAM. Blobs are binary, stored efficiently on disk by the
-//    browser, and survive page reloads, cache clears of other origins,
-//    and code updates forever.
-//  ─ Export Backup  → single .json file  (text + base64 images inline)
-//  ─ Import Backup  → restores everything from that .json
-// ══════════════════════════════════════════════════════════════════════
-
-/* ── IndexedDB ── */
-const IDB = (() => {
-  const NAME = 'MistakeVaultDB';
-  const VER  = 2;
-  const IMG_STORE  = 'images';   // stores Blobs keyed by string
+// ════════════════════════════════════════════════════════════════
+// IMAGE DATABASE — IndexedDB stores all images separately
+// Images are BIG. localStorage has only 5MB total.
+// IndexedDB has 50MB–1GB+ — perfect for images.
+// Text data stays in localStorage (fast, simple).
+// ════════════════════════════════════════════════════════════════
+const ImgDB = (() => {
+  const DB_NAME = 'MistakeVaultImages';
+  const DB_VER = 1;
+  const STORE = 'images';
   let _db = null;
 
   function open() {
     if (_db) return Promise.resolve(_db);
     return new Promise((res, rej) => {
-      const req = indexedDB.open(NAME, VER);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(IMG_STORE))
-          db.createObjectStore(IMG_STORE);
-      };
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
       req.onsuccess = e => { _db = e.target.result; res(_db); };
-      req.onerror   = e => rej(e.target.error);
+      req.onerror = e => rej(e.target.error);
     });
   }
 
-  // Save a File/Blob under key
-  async function saveBlob(key, blob) {
-    if (!key || !blob) return;
+  async function save(key, dataUrl) {
+    if (!key || !dataUrl) return;
     const db = await open();
     return new Promise((res, rej) => {
-      const tx = db.transaction(IMG_STORE, 'readwrite');
-      tx.objectStore(IMG_STORE).put(blob, key);
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(dataUrl, key);
       tx.oncomplete = () => res(true);
-      tx.onerror    = e => rej(e.target.error);
+      tx.onerror = e => rej(e.target.error);
     });
   }
 
-  // Load a Blob and return a stable object URL
-  // We cache object URLs per key so we don't leak memory
-  const _urlCache = {};
-  async function loadURL(key) {
+  async function load(key) {
     if (!key) return null;
-    if (_urlCache[key]) return _urlCache[key];
     const db = await open();
-    const blob = await new Promise((res, rej) => {
-      const tx  = db.transaction(IMG_STORE, 'readonly');
-      const req = tx.objectStore(IMG_STORE).get(key);
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).get(key);
       req.onsuccess = e => res(e.target.result || null);
-      req.onerror   = e => rej(e.target.error);
+      req.onerror = e => rej(e.target.error);
     });
-    if (!blob) return null;
-    // createObjectURL is fine here because we cache it for the session
-    // The Blob itself is persisted in IDB — the URL is just a view pointer
-    const url = URL.createObjectURL(blob);
-    _urlCache[key] = url;
-    return url;
   }
-
-  function invalidateCache(key) { delete _urlCache[key]; }
 
   async function remove(key) {
     if (!key) return;
-    invalidateCache(key);
     const db = await open();
     return new Promise((res, rej) => {
-      const tx = db.transaction(IMG_STORE, 'readwrite');
-      tx.objectStore(IMG_STORE).delete(key);
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(key);
       tx.oncomplete = () => res(true);
-      tx.onerror    = e => rej(e.target.error);
+      tx.onerror = e => rej(e.target.error);
     });
   }
 
-  // For export: return base64 dataURL string for a key
-  async function toDataURL(key) {
-    if (!key) return null;
-    const db = await open();
-    const blob = await new Promise((res, rej) => {
-      const tx  = db.transaction(IMG_STORE, 'readonly');
-      const req = tx.objectStore(IMG_STORE).get(key);
-      req.onsuccess = e => res(e.target.result || null);
-      req.onerror   = e => rej(e.target.error);
-    });
-    if (!blob) return null;
-    return new Promise(res => {
-      const r = new FileReader();
-      r.onload = e => res(e.target.result);
-      r.readAsDataURL(blob);
-    });
-  }
-
-  // For import: save a dataURL string as a Blob
-  async function fromDataURL(key, dataURL) {
-    if (!key || !dataURL) return;
-    const res = await fetch(dataURL);
-    const blob = await res.blob();
-    invalidateCache(key);
-    return saveBlob(key, blob);
-  }
-
-  // List all keys (for export/cleanup)
-  async function allKeys() {
-    const db = await open();
-    return new Promise((res, rej) => {
-      const tx  = db.transaction(IMG_STORE, 'readonly');
-      const req = tx.objectStore(IMG_STORE).getAllKeys();
-      req.onsuccess = e => res(e.target.result);
-      req.onerror   = e => rej(e.target.error);
-    });
-  }
-
-  return { saveBlob, loadURL, remove, toDataURL, fromDataURL, allKeys };
+  return { save, load, remove };
 })();
 
-/* ── localStorage — stable keys, never changes ── */
-const LS = {
-  SUBJECTS : 'mv5_subjects',
-  MISTAKES : 'mv5_mistakes',
-  PYQS     : 'mv5_pyqs',
-};
+// ── PASTE ROUTER ─────────────────────────────────────────────────────
+// Simple: Ctrl+V always goes to explanation editor only.
+// Screenshot field uses file upload only — no paste conflict possible.
+// ─────────────────────────────────────────────────────────────────────
 
-function lsGet(key, def) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; }
-  catch { return def; }
-}
-function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.warn('LS full?', e); }
-}
+// Generate image key for a question field
+const imgKey = (questionId, field) => `${questionId}_${field}`;
+const expImgKey = (questionId, blockId) => `${questionId}_exp_${blockId}`;
 
-/* ── useLocalStorage hook ── */
-function useLS(key, init) {
-  const [val, setVal] = useState(() => lsGet(key, init));
-  useEffect(() => lsSet(key, val), [key, val]);
-  return [val, setVal];
-}
-
-/* ── useImage hook — loads Blob URL from IDB ── */
-function useImage(key) {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    if (!key) { setUrl(null); return; }
-    let alive = true;
-    IDB.loadURL(key).then(u => { if (alive) setUrl(u); }).catch(() => { if (alive) setUrl(null); });
-    return () => { alive = false; };
-  }, [key]);
-  return url;
-}
-
-/* helper to convert File → Blob and save, returns imageKey */
-async function saveImageFile(file, existingKey) {
-  const key = existingKey || ('img_' + Date.now() + '_' + Math.random().toString(36).slice(2));
-  // store as-is (File extends Blob)
-  await IDB.saveBlob(key, file);
-  IDB.invalidateCache(key);
-  return key;
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  BACKUP — Export & Import
-// ══════════════════════════════════════════════════════════════════════
-
-async function exportBackup(mistakes, pyqs, subjects) {
-  // Collect all image keys referenced by data
-  const allImgKeys = new Set();
-  const collectKeys = items => items.forEach(q => {
-    if (q.imageKey) allImgKeys.add(q.imageKey);
-    (q.explanationBlocks||[]).forEach(b => { if (b.imageKey) allImgKeys.add(b.imageKey); });
-  });
-  collectKeys(mistakes);
-  collectKeys(pyqs);
-
-  // Fetch all images as dataURLs
-  const images = {};
-  for (const k of allImgKeys) {
-    const d = await IDB.toDataURL(k);
-    if (d) images[k] = d;
-  }
-
-  const backup = {
-    version: 5,
-    exportedAt: new Date().toISOString(),
-    subjects, mistakes, pyqs, images
-  };
-
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `MistakeVault_Backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function importBackup(file, setSubjects, setMistakes, setPyqs) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = async e => {
-      try {
-        const backup = JSON.parse(e.target.result);
-        if (!backup.version || !backup.mistakes) throw new Error('Invalid backup file');
-
-        // Restore images to IDB
-        const imgs = backup.images || {};
-        for (const [k, dataURL] of Object.entries(imgs)) {
-          await IDB.fromDataURL(k, dataURL);
-        }
-
-        // Restore text data to localStorage
-        if (backup.subjects?.length) setSubjects(backup.subjects);
-        if (backup.mistakes?.length) setMistakes(backup.mistakes);
-        if (backup.pyqs?.length)     setPyqs(backup.pyqs);
-
-        res({ mistakes: backup.mistakes?.length||0, pyqs: backup.pyqs?.length||0, images: Object.keys(imgs).length });
-      } catch(err) { rej(err); }
-    };
-    reader.onerror = rej;
-    reader.readAsText(file);
-  });
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  MIGRATION — bring data from old versions (v3/v4) into v5
-// ══════════════════════════════════════════════════════════════════════
-async function migrate() {
-  if (lsGet(LS.MISTAKES, null) !== null) return; // already on v5
-
-  const OLD_M = ['mv_mistakes_v4','mv_mistakes_v3','mt_questions_v2','mt_questions'];
-  const OLD_S = ['mv_subjects_v4','mv_subjects_v3','mt_subjects_v2','mt_subjects'];
-  const OLD_P = ['mv_pyqs_v4','mv_pyqs_v3'];
-
-  // Subjects
-  for (const k of OLD_S) {
-    const v = lsGet(k, null);
-    if (v) { lsSet(LS.SUBJECTS, v); break; }
-  }
-
-  // Mistakes — dataURL images move to IDB as Blobs
-  for (const k of OLD_M) {
-    const v = lsGet(k, null);
-    if (!v || !v.length) continue;
-    const cleaned = await Promise.all(v.map(async q => {
-      const c = { ...q };
-      // main image
-      if (q.imageUrl?.startsWith('data:') && !q.imageKey) {
-        const key = 'img_m_' + q.id;
-        await IDB.fromDataURL(key, q.imageUrl);
-        c.imageKey = key;
-      }
-      delete c.imageUrl;
-      if (!c.imageKey) c.imageKey = '';
-      // explanation blocks
-      if (Array.isArray(q.explanationBlocks)) {
-        c.explanationBlocks = await Promise.all(q.explanationBlocks.map(async b => {
-          if (b.type === 'image' && b.value?.startsWith('data:') && !b.imageKey) {
-            const key = 'img_exp_' + q.id + '_' + b.id;
-            await IDB.fromDataURL(key, b.value);
-            return { ...b, imageKey: key, value: undefined };
-          }
-          return b;
-        }));
-      }
-      return c;
-    }));
-    lsSet(LS.MISTAKES, cleaned);
-    break;
-  }
-  if (!lsGet(LS.MISTAKES, null)) lsSet(LS.MISTAKES, []);
-
-  // PYQs
-  for (const k of OLD_P) {
-    const v = lsGet(k, null);
-    if (!v || !v.length) continue;
-    const cleaned = await Promise.all(v.map(async q => {
-      const c = { ...q };
-      if (q.imageUrl?.startsWith('data:') && !q.imageKey) {
-        const key = 'img_p_' + q.id;
-        await IDB.fromDataURL(key, q.imageUrl);
-        c.imageKey = key;
-      }
-      delete c.imageUrl;
-      if (!c.imageKey) c.imageKey = '';
-      return c;
-    }));
-    lsSet(LS.PYQS, cleaned);
-    break;
-  }
-  if (!lsGet(LS.PYQS, null)) lsSet(LS.PYQS, []);
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  CONSTANTS
-// ══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════════
 const SUBJECTS_DEFAULT=[
   {id:'dm',name:'Discrete Mathematics',color:'#818cf8',chapters:['Set Theory','Propositional Logic','Relations','Functions','Graph Theory','Combinatorics','Recurrence','Lattice']},
   {id:'em',name:'Engineering Mathematics',color:'#34d399',chapters:['Calculus','Linear Algebra','Probability','Statistics','Differential Equations','Numerical Methods']},
@@ -346,20 +116,137 @@ const MISTAKE_STATUSES=['New','Need Revision','Solved Again','Mastered'];
 const PYQ_STATUSES=['Not Revised','Need Discussion','Solved','Mastered'];
 const SOLUTION_LOCATIONS=['Notebook','Digital Notes','Video Solution','Book Solution','Other'];
 const STATUS_COLORS={New:'#f59e0b','Need Revision':'#ef4444','Solved Again':'#3b82f6',Mastered:'#22c55e','Not Revised':'#f59e0b','Need Discussion':'#ef4444',Solved:'#3b82f6'};
-const TAGS_MISTAKE=['#important','#revise','#repeat-error','#formula','#conceptual','#tricky'];
-const TAGS_PYQ=['#important','#doubt','#revise','#pyq','#tricky','#must-do'];
+const COMMON_TAGS_MISTAKE=['#important','#revise','#repeat-error','#formula','#conceptual','#tricky'];
+const COMMON_TAGS_PYQ=['#important','#doubt','#revise','#pyq','#tricky','#must-do'];
 
-// ══════════════════════════════════════════════════════════════════════
-//  SMALL COMPONENTS
-// ══════════════════════════════════════════════════════════════════════
-const Badge=({count,color})=>count?<span style={{background:color+'33',color,fontSize:10,fontWeight:700,padding:'1px 7px',borderRadius:10}}>{count}</span>:null;
+// ════════════════════════════════════════════════════════════════
+// localStorage hook — only for text/metadata (never images)
+// ════════════════════════════════════════════════════════════════
+function useLocalStorage(key, init) {
+  const [val, setVal] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : init; } catch { return init; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.warn('localStorage save failed:', e); }
+  }, [key, val]);
+  return [val, setVal];
+}
+
+// ════════════════════════════════════════════════════════════════
+// useImage hook — loads an image from IndexedDB by key
+// ════════════════════════════════════════════════════════════════
+function useImage(key) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!key) { setUrl(null); return; }
+    ImgDB.load(key).then(u => setUrl(u || null)).catch(() => setUrl(null));
+  }, [key]);
+  return url;
+}
+
+// ════════════════════════════════════════════════════════════════
+// MIGRATION — move old base64 images OUT of localStorage INTO IndexedDB
+// This rescues any data you still have!
+// ════════════════════════════════════════════════════════════════
+async function migrateOldData() {
+  try {
+    const OLD_KEYS = ['mt_questions','mt_questions_v2','mv_mistakes_v1','mv_mistakes_v2','mv_mistakes_v3'];
+    const OLD_SUB_KEYS = ['mt_subjects','mt_subjects_v2','mv_subjects_v2','mv_subjects_v3'];
+    const NEW_M = 'mv_mistakes_v4';
+    const NEW_S = 'mv_subjects_v4';
+    const NEW_P = 'mv_pyqs_v4';
+
+    // Migrate subjects
+    if (!localStorage.getItem(NEW_S)) {
+      for (const k of OLD_SUB_KEYS) {
+        const raw = localStorage.getItem(k);
+        if (raw) { localStorage.setItem(NEW_S, raw); break; }
+      }
+    }
+
+    // Migrate mistakes — extract base64 images into IndexedDB
+    if (!localStorage.getItem(NEW_M)) {
+      for (const k of OLD_KEYS) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const items = JSON.parse(raw);
+          if (!Array.isArray(items) || items.length === 0) continue;
+
+          const cleaned = await Promise.all(items.map(async q => {
+            const clean = { ...q };
+
+            // Move main imageUrl to IndexedDB
+            if (q.imageUrl && q.imageUrl.startsWith('data:')) {
+              const k2 = imgKey(q.id, 'main');
+              await ImgDB.save(k2, q.imageUrl);
+              clean.imageUrl = '';
+              clean.imageKey = k2;
+            }
+
+            // Move explanation block images to IndexedDB
+            if (Array.isArray(q.explanationBlocks)) {
+              clean.explanationBlocks = await Promise.all(q.explanationBlocks.map(async b => {
+                if (b.type === 'image' && b.value && b.value.startsWith('data:')) {
+                  const bk = expImgKey(q.id, b.id);
+                  await ImgDB.save(bk, b.value);
+                  return { ...b, value: '', imageKey: bk };
+                }
+                return b;
+              }));
+            }
+
+            delete clean.imageUrl; // will use imageKey going forward
+            if (!clean.imageKey) clean.imageKey = '';
+            return clean;
+          }));
+
+          localStorage.setItem(NEW_M, JSON.stringify(cleaned));
+          console.log('[MistakeVault] Migrated', cleaned.length, 'mistakes from', k, '— images moved to IndexedDB ✅');
+          break;
+        } catch(e) { console.warn('Migration parse error', e); }
+      }
+    }
+
+    // Migrate PYQs
+    const OLD_PYQ_KEYS = ['mv_pyqs_v3'];
+    if (!localStorage.getItem(NEW_P)) {
+      for (const k of OLD_PYQ_KEYS) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const items = JSON.parse(raw);
+          if (!Array.isArray(items) || items.length === 0) continue;
+          const cleaned = await Promise.all(items.map(async q => {
+            const clean = { ...q };
+            if (q.imageUrl && q.imageUrl.startsWith('data:')) {
+              const k2 = imgKey(q.id, 'pyq_main');
+              await ImgDB.save(k2, q.imageUrl);
+              clean.imageKey = k2;
+            }
+            delete clean.imageUrl;
+            if (!clean.imageKey) clean.imageKey = '';
+            return clean;
+          }));
+          localStorage.setItem(NEW_P, JSON.stringify(cleaned));
+          break;
+        } catch(e) {}
+      }
+    }
+  } catch(e) { console.warn('Migration error:', e); }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SMALL COMPONENTS
+// ════════════════════════════════════════════════════════════════
+const Badge=({count,color})=>count?<span style={{background:color+'33',color,fontSize:10,fontWeight:700,padding:'1px 7px',borderRadius:10,minWidth:20,textAlign:'center'}}>{count}</span>:null;
 const StatusBadge=({status})=>{const c=STATUS_COLORS[status]||'#888';return<span style={{background:c+'22',color:c,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>{status}</span>};
 
 function Modal({children,onClose,title,wide}){
   useEffect(()=>{const h=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h)},[]);
   return(
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'32px 16px',backdropFilter:'blur(4px)'}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'#0f1422',border:'1px solid #1e2540',borderRadius:14,width:'100%',maxWidth:wide?800:520,padding:24,marginBottom:40,boxShadow:'0 25px 60px rgba(0,0,0,.7)',animation:'fadeIn .15s ease'}}>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.8)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'32px 16px',backdropFilter:'blur(4px)'}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'#0f1422',border:'1px solid #1e2540',borderRadius:14,width:'100%',maxWidth:wide?800:520,padding:24,marginBottom:40,boxShadow:'0 25px 60px rgba(0,0,0,.6)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <h2 style={{fontSize:15,fontWeight:700,color:'#e2e8f0'}}>{title}</h2>
           <button onClick={onClose} style={{background:'#1a1f35',border:'none',color:'#64748b',fontSize:18,width:28,height:28,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
@@ -388,223 +275,281 @@ function TagInput({tags,onChange,suggestions}){
   )
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  IMAGE UPLOAD FIELD
-//  Saves File as Blob in IDB. Returns imageKey (string), never dataURL.
-// ══════════════════════════════════════════════════════════════════════
-function ImageUploadField({imageKey, onSave, onRemove}){
+// ════════════════════════════════════════════════════════════════
+// IMAGE UPLOAD — saves to IndexedDB, returns a key (not base64)
+// ════════════════════════════════════════════════════════════════
+function ImageUploadField({ imageKey, onSave, onRemove }) {
   const ref = useRef();
   const url = useImage(imageKey);
 
-  const handleFile = useCallback(async file => {
+  const handleFile = async (file) => {
     if (!file) return;
-    const newKey = imageKey || ('img_' + Date.now());
-    await IDB.saveBlob(newKey, file);
-    IDB.invalidateCache(newKey);
-    onSave(newKey);
-  }, [imageKey, onSave]);
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      const newKey = 'img_' + Date.now();
+      await ImgDB.save(newKey, ev.target.result);
+      if (imageKey) await ImgDB.remove(imageKey);
+      onSave(newKey);
+    };
+    reader.readAsDataURL(file);
+  };
 
-  // Clipboard paste
-  useEffect(()=>{
-    const h = async e => {
+  // Ctrl+V paste — always active for screenshot field, simplest possible approach
+  useEffect(() => {
+    const onPaste = async e => {
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of items) {
         if (item.type.startsWith('image/')) {
+          e.preventDefault();
           await handleFile(item.getAsFile());
-          e.preventDefault(); break;
+          break;
         }
       }
     };
-    window.addEventListener('paste', h);
-    return () => window.removeEventListener('paste', h);
-  }, [handleFile]);
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [imageKey]);
 
-  return(
+  return (
     <div>
-      {url?(
+      {url ? (
         <div style={{position:'relative',marginBottom:8}}>
           <img src={url} alt="screenshot" style={{width:'100%',borderRadius:8,maxHeight:260,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>
-          <button onClick={async()=>{if(imageKey)await IDB.remove(imageKey);onRemove();}}
-            style={{position:'absolute',top:8,right:8,background:'#ef4444cc',border:'none',borderRadius:6,color:'#fff',padding:'3px 10px',fontSize:11,fontWeight:600}}>Remove</button>
+          <button onClick={async()=>{if(imageKey)await ImgDB.remove(imageKey);onRemove();}} style={{position:'absolute',top:8,right:8,background:'#ef4444cc',border:'none',borderRadius:6,color:'#fff',padding:'3px 10px',fontSize:11,fontWeight:600}}>Remove</button>
         </div>
-      ):(
+      ) : (
         <div onClick={()=>ref.current.click()}
-          style={{border:'2px dashed #1e2540',borderRadius:8,padding:20,textAlign:'center',cursor:'pointer',color:'#3d4460',fontSize:13,transition:'all .2s'}}
+          style={{border:'2px dashed #1e2540',borderRadius:8,padding:20,textAlign:'center',cursor:'pointer',color:'#3d4460',fontSize:13,transition:'border-color .2s,color .2s'}}
           onMouseEnter={e=>{e.currentTarget.style.borderColor='#6366f1';e.currentTarget.style.color='#818cf8'}}
           onMouseLeave={e=>{e.currentTarget.style.borderColor='#1e2540';e.currentTarget.style.color='#3d4460'}}>
-          📷 Click to upload · <strong>Ctrl+V</strong> to paste · saved as Blob permanently
+          📷 <strong>Click</strong> to upload · <strong>Ctrl+V</strong> anywhere to paste screenshot
         </div>
       )}
       <input ref={ref} type="file" accept="image/*" onChange={e=>handleFile(e.target.files[0])} style={{display:'none'}}/>
-      {url&&<button onClick={()=>ref.current.click()} style={{marginTop:6,background:'#131929',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'5px 12px',fontSize:12}}>Change</button>}
+      {url&&<button onClick={()=>ref.current.click()} style={{marginTop:6,background:'#131929',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'5px 12px',fontSize:12}}>Change Image</button>}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  EXPLANATION EDITOR  (text + image blocks, images stored as Blobs)
-// ══════════════════════════════════════════════════════════════════════
-function ExpImgBlock({imageKey}){
-  const url=useImage(imageKey);
-  return url?<img src={url} alt="exp" style={{width:'100%',borderRadius:6,marginBottom:8,maxHeight:260,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>:
-    <div style={{padding:12,textAlign:'center',color:'#374151',fontSize:11,border:'1px dashed #1e2540',borderRadius:6,marginBottom:8}}>Loading image...</div>;
+// ════════════════════════════════════════════════════════════════
+// EXPLANATION EDITOR — blocks of text + images, all images in IndexedDB
+// ════════════════════════════════════════════════════════════════
+function ExplanationBlock({ block, questionId, index, total, onUpdate, onRemove, onMoveUp, onMoveDown }) {
+  const url = useImage(block.type === 'image' ? block.imageKey : null);
+
+  if (block.type === 'image') {
+    return (
+      <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
+        <div style={{flex:1}}>
+          {url
+            ? <img src={url} alt="exp" style={{width:'100%',borderRadius:6,maxHeight:240,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>
+            : <div style={{padding:12,textAlign:'center',color:'#374151',fontSize:11,border:'1px dashed #1e2540',borderRadius:6}}>Image loading...</div>
+          }
+        </div>
+        <BlockControls index={index} total={total} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onRemove={onRemove}/>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
+      <textarea value={block.value||''} onChange={e=>onUpdate({...block,value:e.target.value})} placeholder="Write explanation..." rows={3}
+        style={{flex:1,resize:'vertical',fontSize:13,background:'#131929',border:'1px solid #1e2540',borderRadius:6,padding:'8px 10px',color:'#e2e8f0',fontFamily:'inherit'}}/>
+      <BlockControls index={index} total={total} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onRemove={onRemove}/>
+    </div>
+  );
 }
 
-function ExplanationEditor({blocks, onChange, qId}){
+function BlockControls({index,total,onMoveUp,onMoveDown,onRemove}){
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:3,flexShrink:0}}>
+      <button type="button" onClick={onMoveUp} disabled={index===0} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:index===0?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▲</button>
+      <button type="button" onClick={onMoveDown} disabled={index===total-1} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:index===total-1?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▼</button>
+      <button type="button" onClick={onRemove} style={{background:'#1a0a0a',border:'1px solid #3f1515',borderRadius:5,color:'#ef4444',padding:'3px 6px',fontSize:10}}>✕</button>
+    </div>
+  )
+}
+
+function ExplanationEditor({ blocks, onChange, questionId }) {
   const fileRef = useRef();
 
-  const addText=()=>onChange([...blocks,{id:'b'+Date.now(),type:'text',value:''}]);
+  const addText = () => {
+    onChange([...blocks, { id: 'b' + Date.now(), type: 'text', value: '' }]);
+  };
 
-  const addFile=useCallback(async file=>{
-    if(!file)return;
-    const id='b'+Date.now();
-    const key='img_exp_'+(qId||'new')+'_'+id;
-    await IDB.saveBlob(key, file);
-    IDB.invalidateCache(key);
-    onChange([...blocks,{id,type:'image',imageKey:key}]);
-    if(fileRef.current)fileRef.current.value='';
-  },[blocks,qId,onChange]);
-
-  useEffect(()=>{
-    const h=async e=>{
-      const items=e.clipboardData?.items;if(!items)return;
-      for(const item of items){
-        if(item.type.startsWith('image/')){await addFile(item.getAsFile());e.preventDefault();break;}
-      }
+  const addImageFile = async (file) => {
+    if (!file) return;
+    const id = 'b' + Date.now();
+    const key = expImgKey(questionId || 'new', id);
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      await ImgDB.save(key, ev.target.result);
+      onChange([...blocks, { id, type: 'image', imageKey: key }]);
     };
-    window.addEventListener('paste',h);return()=>window.removeEventListener('paste',h);
-  },[addFile]);
+    reader.readAsDataURL(file);
+    if (fileRef.current) fileRef.current.value = '';
+  };
 
-  const upd=(i,b)=>{const a=[...blocks];a[i]=b;onChange(a)};
-  const rem=async i=>{
-    const b=blocks[i];
-    if(b.type==='image'&&b.imageKey)await IDB.remove(b.imageKey);
+  // No paste here — use the Image button to upload
+
+  const update = (i, b) => { const a = [...blocks]; a[i] = b; onChange(a); };
+  const remove = async (i) => {
+    const b = blocks[i];
+    if (b.type === 'image' && b.imageKey) await ImgDB.remove(b.imageKey);
     onChange(blocks.filter((_,j)=>j!==i));
   };
-  const mv=(i,d)=>{const a=[...blocks];const t=i+d;if(t<0||t>=a.length)return;[a[i],a[t]]=[a[t],a[i]];onChange(a)};
+  const moveUp = (i) => { if(i===0)return; const a=[...blocks];[a[i-1],a[i]]=[a[i],a[i-1]];onChange(a); };
+  const moveDown = (i) => { if(i===blocks.length-1)return; const a=[...blocks];[a[i],a[i+1]]=[a[i+1],a[i]];onChange(a); };
 
-  return(
+  return (
     <div style={{border:'1px solid #252b42',borderRadius:8,overflow:'hidden'}}>
       <div style={{background:'#131929',padding:'6px 10px',display:'flex',gap:6,alignItems:'center',borderBottom:'1px solid #1a1f35'}}>
         <button type="button" onClick={addText} style={{background:'#1a1f35',border:'1px solid #252b42',borderRadius:6,color:'#94a3b8',padding:'4px 10px',fontSize:11,fontWeight:600}}>+ Text</button>
         <button type="button" onClick={()=>fileRef.current.click()} style={{background:'#1a1f35',border:'1px solid #252b42',borderRadius:6,color:'#94a3b8',padding:'4px 10px',fontSize:11,fontWeight:600}}>🖼 Image</button>
-        <span style={{fontSize:10,color:'#374151',marginLeft:4}}>Ctrl+V to paste · stored as Blob</span>
-        <input ref={fileRef} type="file" accept="image/*" onChange={e=>addFile(e.target.files[0])} style={{display:'none'}}/>
+        <span style={{fontSize:10,color:'#374151',marginLeft:4}}>Use 🖼 Image button to add images</span>
+        <input ref={fileRef} type="file" accept="image/*" onChange={e=>addImageFile(e.target.files[0])} style={{display:'none'}}/>
       </div>
       <div style={{background:'#0f1422',padding:blocks.length?8:0,display:'flex',flexDirection:'column',gap:6}}>
         {blocks.length===0&&<div style={{padding:20,textAlign:'center',color:'#374151',fontSize:12}}>
           Click <strong style={{color:'#6366f1'}}>+ Text</strong> or <strong style={{color:'#6366f1'}}>🖼 Image</strong> to build your explanation
         </div>}
         {blocks.map((b,i)=>(
-          <div key={b.id} style={{display:'flex',gap:6,alignItems:'flex-start'}}>
-            <div style={{flex:1}}>
-              {b.type==='text'?(
-                <textarea value={b.value||''} onChange={e=>upd(i,{...b,value:e.target.value})} placeholder="Write explanation..." rows={3}
-                  style={{flex:1,width:'100%',resize:'vertical',fontSize:13,background:'#131929',border:'1px solid #1e2540',borderRadius:6,padding:'8px 10px',color:'#e2e8f0',fontFamily:'inherit'}}/>
-              ):(
-                <ExpImgBlock imageKey={b.imageKey}/>
-              )}
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:3,flexShrink:0}}>
-              <button type="button" onClick={()=>mv(i,-1)} disabled={i===0} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:i===0?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▲</button>
-              <button type="button" onClick={()=>mv(i,1)} disabled={i===blocks.length-1} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:i===blocks.length-1?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▼</button>
-              <button type="button" onClick={()=>rem(i)} style={{background:'#1a0a0a',border:'1px solid #3f1515',borderRadius:5,color:'#ef4444',padding:'3px 6px',fontSize:10}}>✕</button>
-            </div>
-          </div>
+          <ExplanationBlock key={b.id} block={b} questionId={questionId} index={i} total={blocks.length}
+            onUpdate={nb=>update(i,nb)} onRemove={()=>remove(i)} onMoveUp={()=>moveUp(i)} onMoveDown={()=>moveDown(i)}/>
         ))}
       </div>
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  FORMS
-// ══════════════════════════════════════════════════════════════════════
-function MistakeForm({q,subjects,defSub,defCh,onSave,onClose}){
-  const qId=useRef(q?.id||('new_'+Date.now())).current;
-  const initBlocks=()=>{
-    if(q?.explanationBlocks)return q.explanationBlocks;
-    if(q?.explanation)return[{id:'b0',type:'text',value:q.explanation}];
-    return[];
+// ════════════════════════════════════════════════════════════════
+// MISTAKE FORM
+// ════════════════════════════════════════════════════════════════
+function MistakeForm({q,subjects,defaultSubject,defaultChapter,onSave,onClose}){
+  const qId = useRef(q?.id || 'new_' + Date.now()).current;
+  const initBlocks = () => {
+    if (q?.explanationBlocks) return q.explanationBlocks;
+    if (q?.explanation) return [{id:'b0',type:'text',value:q.explanation}];
+    return [];
   };
-  const[f,setF]=useState({title:q?.title||'',subject:q?.subject||defSub||'dm',chapter:q?.chapter||defCh||'',mistakeType:q?.mistakeType||'Concept Mistake',difficulty:q?.difficulty||'Medium',tags:q?.tags||[],status:q?.status||'New',notes:q?.notes||'',solutionLink:q?.solutionLink||'',imageKey:q?.imageKey||''});
-  const[exp,setExp]=useState(initBlocks);
-  const sub=subjects.find(s=>s.id===f.subject)||subjects[0];
-  const s=(k,v)=>setF(p=>({...p,[k]:v}));
+  const[form,setForm]=useState({
+    title:q?.title||'', subject:q?.subject||defaultSubject||'dm',
+    chapter:q?.chapter||defaultChapter||'', mistakeType:q?.mistakeType||'Concept Mistake',
+    difficulty:q?.difficulty||'Medium', tags:q?.tags||[], status:q?.status||'New',
+    notes:q?.notes||'', solutionLink:q?.solutionLink||'', imageKey:q?.imageKey||''
+  });
+  const[expBlocks,setExpBlocks]=useState(initBlocks);
+  const sub=subjects.find(s=>s.id===form.subject)||subjects[0];
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
   const save=()=>{
-    if(!f.title.trim()){alert('Please enter a question title');return;}
-    onSave({...f,explanationBlocks:exp,id:q?.id||qId,date:q?.date||new Date().toISOString().slice(0,10)});
+    if(!form.title.trim()){alert('Please enter a question title');return;}
+    const saved={...form,explanationBlocks:expBlocks,id:q?.id||qId,date:q?.date||new Date().toISOString().slice(0,10)};
+    onSave(saved);
+    onClose();
+  };
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:13,maxHeight:'72vh',overflowY:'auto',paddingRight:4}}>
+      <div><label>Question Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Brief description of the question"/></div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <div><label>Subject</label><select value={form.subject} onChange={e=>{set('subject',e.target.value);set('chapter','')}}>
+          {subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+        </select></div>
+        <div><label>Chapter</label><select value={form.chapter} onChange={e=>set('chapter',e.target.value)}>
+          <option value="">-- Select --</option>
+          {sub.chapters.map(c=><option key={c} value={c}>{c}</option>)}
+        </select></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+        <div><label>Mistake Type</label><select value={form.mistakeType} onChange={e=>set('mistakeType',e.target.value)}>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}</select></div>
+        <div><label>Difficulty</label><select value={form.difficulty} onChange={e=>set('difficulty',e.target.value)}>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}</select></div>
+        <div><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{MISTAKE_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+      </div>
+      <div>
+        <label>Question Screenshot — stored permanently, never lost</label>
+        <ImageUploadField imageKey={form.imageKey} onSave={k=>set('imageKey',k)} onRemove={()=>set('imageKey','')}/>
+      </div>
+      <div>
+        <label>My Explanation / Solution Approach</label>
+        <ExplanationEditor blocks={expBlocks} onChange={setExpBlocks} questionId={qId}/>
+      </div>
+      <div><label>Solution Link</label><input value={form.solutionLink} onChange={e=>set('solutionLink',e.target.value)} placeholder="YouTube / website / drive link"/></div>
+      <div><label>Key Learning Note</label><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} rows={2} placeholder="What to remember next time?"/></div>
+      <div><label>Tags</label><TagInput tags={form.tags} onChange={v=>set('tags',v)} suggestions={COMMON_TAGS_MISTAKE}/></div>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:12,borderTop:'1px solid #1a1f35'}}>
+        <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Cancel</button>
+        <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save Question</button>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════
+// PYQ FORM
+// ════════════════════════════════════════════════════════════════
+function PYQForm({q,subjects,defaultSubject,defaultChapter,onSave,onClose}){
+  const[form,setForm]=useState({
+    qNum:q?.qNum||'', year:q?.year||'', subject:q?.subject||defaultSubject||'dm',
+    chapter:q?.chapter||defaultChapter||'', imageKey:q?.imageKey||'',
+    isImportant:q?.isImportant||false, isDoubt:q?.isDoubt||false,
+    status:q?.status||'Not Revised', solutionLocation:q?.solutionLocation||'Notebook',
+    pageRef:q?.pageRef||'', notes:q?.notes||'', tags:q?.tags||[]
+  });
+  const sub=subjects.find(s=>s.id===form.subject)||subjects[0];
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const tog=k=>setForm(f=>({...f,[k]:!f[k]}));
+  const save=()=>{
+    if(!form.qNum.trim()){alert('Please enter a question number');return;}
+    onSave({...form,id:q?.id||Date.now().toString(),date:q?.date||new Date().toISOString().slice(0,10)});
     onClose();
   };
   return(
     <div style={{display:'flex',flexDirection:'column',gap:13,maxHeight:'72vh',overflowY:'auto',paddingRight:4}}>
-      <div><label>Question Title *</label><input value={f.title} onChange={e=>s('title',e.target.value)} placeholder="Brief description"/></div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Subject</label><select value={f.subject} onChange={e=>{s('subject',e.target.value);s('chapter','')}}>
-          {subjects.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
-        <div><label>Chapter</label><select value={f.chapter} onChange={e=>s('chapter',e.target.value)}>
-          <option value="">-- Select --</option>{sub.chapters.map(c=><option key={c}>{c}</option>)}</select></div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-        <div><label>Mistake Type</label><select value={f.mistakeType} onChange={e=>s('mistakeType',e.target.value)}>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}</select></div>
-        <div><label>Difficulty</label><select value={f.difficulty} onChange={e=>s('difficulty',e.target.value)}>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}</select></div>
-        <div><label>Status</label><select value={f.status} onChange={e=>s('status',e.target.value)}>{MISTAKE_STATUSES.map(x=><option key={x}>{x}</option>)}</select></div>
-      </div>
-      <div><label>Question Screenshot (Blob — permanent)</label><ImageUploadField imageKey={f.imageKey} onSave={k=>s('imageKey',k)} onRemove={()=>s('imageKey','')}/></div>
-      <div><label>My Explanation</label><ExplanationEditor blocks={exp} onChange={setExp} qId={qId}/></div>
-      <div><label>Solution Link</label><input value={f.solutionLink} onChange={e=>s('solutionLink',e.target.value)} placeholder="YouTube / website / drive"/></div>
-      <div><label>Key Learning Note</label><textarea value={f.notes} onChange={e=>s('notes',e.target.value)} rows={2} placeholder="What to remember?"/></div>
-      <div><label>Tags</label><TagInput tags={f.tags} onChange={v=>s('tags',v)} suggestions={TAGS_MISTAKE}/></div>
-      <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:12,borderTop:'1px solid #1a1f35'}}>
-        <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Cancel</button>
-        <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save</button>
-      </div>
-    </div>
-  );
-}
-
-function PYQForm({q,subjects,defSub,defCh,onSave,onClose}){
-  const[f,setF]=useState({qNum:q?.qNum||'',year:q?.year||'',subject:q?.subject||defSub||'dm',chapter:q?.chapter||defCh||'',imageKey:q?.imageKey||'',isImportant:q?.isImportant||false,isDoubt:q?.isDoubt||false,status:q?.status||'Not Revised',solutionLocation:q?.solutionLocation||'Notebook',pageRef:q?.pageRef||'',notes:q?.notes||'',tags:q?.tags||[]});
-  const sub=subjects.find(s=>s.id===f.subject)||subjects[0];
-  const s=(k,v)=>setF(p=>({...p,[k]:v}));
-  const tog=k=>setF(p=>({...p,[k]:!p[k]}));
-  const save=()=>{if(!f.qNum.trim()){alert('Enter question number');return;}onSave({...f,id:q?.id||Date.now().toString(),date:q?.date||new Date().toISOString().slice(0,10)});onClose();};
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:13,maxHeight:'72vh',overflowY:'auto',paddingRight:4}}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Question Number *</label><input value={f.qNum} onChange={e=>s('qNum',e.target.value)} placeholder="Q1, Q23..."/></div>
-        <div><label>Year / Exam</label><input value={f.year} onChange={e=>s('year',e.target.value)} placeholder="GATE 2023..."/></div>
+        <div><label>Question Number *</label><input value={form.qNum} onChange={e=>set('qNum',e.target.value)} placeholder="Q1, Q23, Q45..."/></div>
+        <div><label>Year / Exam</label><input value={form.year} onChange={e=>set('year',e.target.value)} placeholder="GATE 2023, GO Book Set 1..."/></div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Subject</label><select value={f.subject} onChange={e=>{s('subject',e.target.value);s('chapter','')}}>
-          {subjects.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
-        <div><label>Chapter</label><select value={f.chapter} onChange={e=>s('chapter',e.target.value)}>
-          <option value="">-- Select --</option>{sub.chapters.map(c=><option key={c}>{c}</option>)}</select></div>
+        <div><label>Subject</label><select value={form.subject} onChange={e=>{set('subject',e.target.value);set('chapter','')}}>
+          {subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+        </select></div>
+        <div><label>Chapter</label><select value={form.chapter} onChange={e=>set('chapter',e.target.value)}>
+          <option value="">-- Select --</option>
+          {sub.chapters.map(c=><option key={c} value={c}>{c}</option>)}
+        </select></div>
       </div>
       <div style={{display:'flex',gap:10}}>
-        <button onClick={()=>tog('isImportant')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${f.isImportant?'#f59e0b':'#1e2540'}`,background:f.isImportant?'#f59e0b22':'#131929',color:f.isImportant?'#f59e0b':'#64748b',fontSize:12,fontWeight:600}}>⭐ {f.isImportant?'Important ✓':'Mark Important'}</button>
-        <button onClick={()=>tog('isDoubt')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${f.isDoubt?'#ef4444':'#1e2540'}`,background:f.isDoubt?'#ef444422':'#131929',color:f.isDoubt?'#ef4444':'#64748b',fontSize:12,fontWeight:600}}>❓ {f.isDoubt?'Doubt ✓':'Mark Doubt'}</button>
+        <button onClick={()=>tog('isImportant')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${form.isImportant?'#f59e0b':'#1e2540'}`,background:form.isImportant?'#f59e0b22':'#131929',color:form.isImportant?'#f59e0b':'#64748b',fontSize:12,fontWeight:600}}>
+          ⭐ {form.isImportant?'Important ✓':'Mark Important'}
+        </button>
+        <button onClick={()=>tog('isDoubt')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${form.isDoubt?'#ef4444':'#1e2540'}`,background:form.isDoubt?'#ef444422':'#131929',color:form.isDoubt?'#ef4444':'#64748b',fontSize:12,fontWeight:600}}>
+          ❓ {form.isDoubt?'Doubt ✓':'Mark as Doubt'}
+        </button>
       </div>
-      <div><label>Screenshot (Blob — permanent)</label><ImageUploadField imageKey={f.imageKey} onSave={k=>s('imageKey',k)} onRemove={()=>s('imageKey','')}/></div>
+      <div>
+        <label>Screenshot — stored permanently</label>
+        <ImageUploadField imageKey={form.imageKey} onSave={k=>set('imageKey',k)} onRemove={()=>set('imageKey','')}/>
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-        <div><label>Status</label><select value={f.status} onChange={e=>s('status',e.target.value)}>{PYQ_STATUSES.map(x=><option key={x}>{x}</option>)}</select></div>
-        <div><label>Solution Location</label><select value={f.solutionLocation} onChange={e=>s('solutionLocation',e.target.value)}>{SOLUTION_LOCATIONS.map(x=><option key={x}>{x}</option>)}</select></div>
-        <div><label>Page / Notebook Ref</label><input value={f.pageRef} onChange={e=>s('pageRef',e.target.value)} placeholder="Notebook 1, Page 23"/></div>
+        <div><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{PYQ_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+        <div><label>Solution Location</label><select value={form.solutionLocation} onChange={e=>set('solutionLocation',e.target.value)}>{SOLUTION_LOCATIONS.map(s=><option key={s}>{s}</option>)}</select></div>
+        <div><label>Page / Notebook Ref</label><input value={form.pageRef} onChange={e=>set('pageRef',e.target.value)} placeholder="Notebook 1, Page 23"/></div>
       </div>
-      <div><label>Notes</label><textarea value={f.notes} onChange={e=>s('notes',e.target.value)} rows={3} placeholder="Key concept, doubt..."/></div>
-      <div><label>Tags</label><TagInput tags={f.tags} onChange={v=>s('tags',v)} suggestions={TAGS_PYQ}/></div>
+      <div><label>Discussion Notes</label><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="Key concept, doubt, or discussion point..."/></div>
+      <div><label>Tags</label><TagInput tags={form.tags} onChange={v=>set('tags',v)} suggestions={COMMON_TAGS_PYQ}/></div>
       <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:12,borderTop:'1px solid #1a1f35'}}>
         <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Cancel</button>
-        <button onClick={save} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save</button>
+        <button onClick={save} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save PYQ</button>
       </div>
     </div>
-  );
+  )
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  DETAIL VIEWS
-// ══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// DETAIL VIEWS
+// ════════════════════════════════════════════════════════════════
 function MistakeDetail({q,subjects,onClose,onEdit,onDelete}){
   const sub=subjects.find(s=>s.id===q.subject);
   const mainImg=useImage(q.imageKey);
@@ -625,8 +570,13 @@ function MistakeDetail({q,subjects,onClose,onEdit,onDelete}){
       {(q.explanationBlocks?.length>0||q.explanation)&&<div style={{background:'#0d1422',border:'1px solid #1e2540',borderRadius:8,padding:14,marginBottom:12}}>
         <p style={{fontSize:10,color:'#475569',marginBottom:10,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>My Explanation</p>
         {q.explanationBlocks?.length>0
-          ?q.explanationBlocks.map(b=>b.type==='image'?<ExpImgBlock key={b.id} imageKey={b.imageKey}/>:<p key={b.id} style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:6}}>{b.value}</p>)
-          :<p style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{q.explanation}</p>}
+          ? q.explanationBlocks.map(b=>
+              b.type==='image'
+                ? <ExpImageBlock key={b.id} imageKey={b.imageKey}/>
+                : <p key={b.id} style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:6}}>{b.value}</p>
+            )
+          : <p style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{q.explanation}</p>
+        }
       </div>}
       {q.solutionLink&&<div style={{marginBottom:12}}>
         <p style={{fontSize:10,color:'#475569',marginBottom:5,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Solution Link</p>
@@ -645,7 +595,12 @@ function MistakeDetail({q,subjects,onClose,onEdit,onDelete}){
         <button onClick={onClose} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:7,color:'#fff',padding:'7px 16px',fontSize:12,fontWeight:700}}>Close</button>
       </div>
     </div>
-  );
+  )
+}
+
+function ExpImageBlock({imageKey}){
+  const url=useImage(imageKey);
+  return url?<img src={url} alt="exp" style={{width:'100%',borderRadius:6,marginBottom:8,maxHeight:280,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>:null;
 }
 
 function PYQDetail({q,subjects,onClose,onEdit,onDelete}){
@@ -684,21 +639,22 @@ function PYQDetail({q,subjects,onClose,onEdit,onDelete}){
         <button onClick={onClose} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:7,color:'#fff',padding:'7px 16px',fontSize:12,fontWeight:700}}>Close</button>
       </div>
     </div>
-  );
+  )
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  CARDS
-// ══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// CARDS
+// ════════════════════════════════════════════════════════════════
 function MistakeCard({q,subjects,onClick}){
   const sub=subjects.find(s=>s.id===q.subject);
   const dc={Easy:'#22c55e',Medium:'#f59e0b',Hard:'#ef4444'};
+  const hasImg=!!(q.imageKey||(q.explanationBlocks||[]).some(b=>b.type==='image'&&b.imageKey));
   return(
     <div onClick={onClick} style={{background:'#0d1120',border:'1px solid #1a1f35',borderRadius:10,padding:14,cursor:'pointer',borderLeft:`3px solid ${sub?.color||'#6366f1'}`,transition:'transform .15s,border-color .15s'}}
       onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.borderColor=sub?.color||'#6366f1'}}
       onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#1a1f35'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:8}}>
-        <p style={{fontSize:13,fontWeight:600,color:'#e2e8f0',lineHeight:1.4,flex:1}}>{q.title}{q.imageKey&&<span style={{fontSize:10,color:'#475569',marginLeft:6}}>📷</span>}</p>
+        <p style={{fontSize:13,fontWeight:600,color:'#e2e8f0',lineHeight:1.4,flex:1}}>{q.title}{hasImg&&<span style={{fontSize:10,color:'#475569',marginLeft:6}}>📷</span>}</p>
         <StatusBadge status={q.status}/>
       </div>
       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
@@ -712,10 +668,10 @@ function MistakeCard({q,subjects,onClick}){
         <span style={{fontSize:10,color:'#374151'}}>{q.date}</span>
       </div>
     </div>
-  );
+  )
 }
 
-function PYQCard({q,onClick}){
+function PYQCard({q,subjects,onClick}){
   return(
     <div onClick={onClick} style={{background:'#0a1628',border:'1px solid #0e2040',borderRadius:10,padding:14,cursor:'pointer',borderLeft:'3px solid #06b6d4',transition:'transform .15s,border-color .15s'}}
       onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.borderColor='#22d3ee'}}
@@ -726,7 +682,8 @@ function PYQCard({q,onClick}){
           {q.year&&<span style={{fontSize:10,color:'#0ea5e9',background:'#0ea5e922',padding:'1px 6px',borderRadius:4,fontWeight:600}}>{q.year}</span>}
         </div>
         <div style={{display:'flex',gap:4,alignItems:'center'}}>
-          {q.isImportant&&<span>⭐</span>}{q.isDoubt&&<span>❓</span>}
+          {q.isImportant&&<span style={{fontSize:12}}>⭐</span>}
+          {q.isDoubt&&<span style={{fontSize:12}}>❓</span>}
           <StatusBadge status={q.status}/>
         </div>
       </div>
@@ -740,74 +697,12 @@ function PYQCard({q,onClick}){
         <span style={{fontSize:10,color:'#374151'}}>{q.date}</span>
       </div>
     </div>
-  );
+  )
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  BACKUP MODAL
-// ══════════════════════════════════════════════════════════════════════
-function BackupModal({mistakes,pyqs,subjects,setSubjects,setMistakes,setPyqs,onClose}){
-  const[status,setStatus]=useState('');
-  const[loading,setLoading]=useState(false);
-  const fileRef=useRef();
-
-  const doExport=async()=>{
-    setLoading(true);setStatus('Preparing backup...');
-    try{await exportBackup(mistakes,pyqs,subjects);setStatus(`✅ Backup downloaded! (${mistakes.length} mistakes, ${pyqs.length} PYQs)`);}
-    catch(e){setStatus('❌ Export failed: '+e.message);}
-    setLoading(false);
-  };
-
-  const doImport=async file=>{
-    if(!file)return;
-    if(!window.confirm('Import will MERGE with your current data. Continue?'))return;
-    setLoading(true);setStatus('Importing...');
-    try{
-      const r=await importBackup(file,setSubjects,setMistakes,setPyqs);
-      setStatus(`✅ Imported! ${r.mistakes} mistakes, ${r.pyqs} PYQs, ${r.images} images`);
-    }catch(e){setStatus('❌ Import failed: '+e.message);}
-    setLoading(false);
-  };
-
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:16}}>
-      <div style={{background:'#0a1628',border:'1px solid #06b6d433',borderRadius:10,padding:16}}>
-        <p style={{fontSize:13,fontWeight:700,color:'#22d3ee',marginBottom:6}}>📦 Export Backup</p>
-        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Downloads a single <strong style={{color:'#94a3b8'}}>.json</strong> file containing all your questions, PYQs, subjects, and images. Save it to Google Drive or your PC regularly.</p>
-        <button onClick={doExport} disabled={loading} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
-          ⬇ Download Backup ({mistakes.length+pyqs.length} items)
-        </button>
-      </div>
-      <div style={{background:'#1a0f05',border:'1px solid #f59e0b33',borderRadius:10,padding:16}}>
-        <p style={{fontSize:13,fontWeight:700,color:'#f59e0b',marginBottom:6}}>📂 Import Backup</p>
-        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Restore from a previously exported <strong style={{color:'#94a3b8'}}>.json</strong> backup file. This merges imported data with your current data.</p>
-        <button onClick={()=>fileRef.current.click()} disabled={loading} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
-          ⬆ Import from Backup
-        </button>
-        <input ref={fileRef} type="file" accept=".json" onChange={e=>doImport(e.target.files[0])} style={{display:'none'}}/>
-      </div>
-      <div style={{background:'#131929',border:'1px solid #1e2540',borderRadius:10,padding:14}}>
-        <p style={{fontSize:11,fontWeight:700,color:'#475569',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>💡 Recommendation</p>
-        <p style={{fontSize:12,color:'#475569',lineHeight:1.7}}>
-          Export backup every <strong style={{color:'#94a3b8'}}>week</strong> and save to Google Drive.<br/>
-          This protects against browser cache clears, OS reinstalls, or switching devices.<br/>
-          <strong style={{color:'#f59e0b'}}>Images are included</strong> in the backup file.
-        </p>
-      </div>
-      {status&&<div style={{background:status.startsWith('✅')?'#052010':'#1a0505',border:`1px solid ${status.startsWith('✅')?'#22c55e33':'#ef444433'}`,borderRadius:8,padding:'10px 14px',fontSize:13,color:status.startsWith('✅')?'#22c55e':'#ef4444'}}>{status}</div>}
-      {loading&&<div style={{display:'flex',alignItems:'center',gap:8,color:'#475569',fontSize:12}}>
-        <div style={{width:16,height:16,border:'2px solid #1e2540',borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>Processing...
-      </div>}
-      <div style={{display:'flex',justifyContent:'flex-end'}}>
-        <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Close</button>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════
-//  DASHBOARD
-// ══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════
 function Dashboard({mistakes,pyqs,subjects,onBackup}){
   const totalM=mistakes.length,totalP=pyqs.length;
   const impP=pyqs.filter(q=>q.isImportant).length;
@@ -823,17 +718,10 @@ function Dashboard({mistakes,pyqs,subjects,onBackup}){
           <h2 style={{fontSize:20,fontWeight:800,color:'#e2e8f0',letterSpacing:-.5}}>Dashboard</h2>
           <p style={{fontSize:13,color:'#475569',marginTop:2}}>Your GATE prep overview</p>
         </div>
-        <button onClick={onBackup} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
-          💾 Backup / Restore
-        </button>
-      </div>
-      {/* Notice banner */}
-      <div style={{background:'#0a1a0a',border:'1px solid #22c55e33',borderRadius:10,padding:'10px 14px',marginBottom:20,display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:16}}>🛡️</span>
-        <p style={{fontSize:12,color:'#4ade80',lineHeight:1.5}}>Images stored as <strong>Blobs in IndexedDB</strong> — permanent, no size limit. Export backup weekly to Google Drive for extra safety.</p>
+        <button onClick={onBackup} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontSize:12,fontWeight:700}}>💾 Backup / Restore</button>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:28}}>
-        {[['Mistakes','#6366f1',totalM],['PYQs','#06b6d4',totalP],['Important','#f59e0b',impP],['Discussion','#ef4444',discP],['Need Revision','#ef4444',needRevM.length],['Mastered','#22c55e',mistakes.filter(q=>q.status==='Mastered').length]].map(([l,c,v])=>(
+        {[['Test Mistakes','#6366f1',totalM],['PYQs Saved','#06b6d4',totalP],['Important PYQs','#f59e0b',impP],['Need Discussion','#ef4444',discP],['Need Revision','#ef4444',needRevM.length],['Mastered','#22c55e',mistakes.filter(q=>q.status==='Mastered').length]].map(([l,c,v])=>(
           <div key={l} style={{background:'#0d1120',border:'1px solid #1a1f35',borderRadius:10,padding:'14px 12px',textAlign:'center'}}>
             <p style={{fontSize:10,color:'#475569',marginBottom:6,fontWeight:600,textTransform:'uppercase',letterSpacing:.5}}>{l}</p>
             <p style={{fontSize:26,fontWeight:800,color:c}}>{v}</p>
@@ -886,10 +774,10 @@ function Dashboard({mistakes,pyqs,subjects,onBackup}){
       </div>}
       {totalM===0&&totalP===0&&<div style={{textAlign:'center',padding:'40px 20px',background:'#0d1120',borderRadius:12,border:'1px dashed #1e2540',marginTop:20}}>
         <p style={{fontSize:32,marginBottom:10}}>🎯</p>
-        <p style={{fontSize:14,color:'#475569'}}>Click a subject to start adding mistakes or PYQs!</p>
+        <p style={{fontSize:14,color:'#475569'}}>Click a subject → add your first mistake or PYQ!</p>
       </div>}
     </div>
-  );
+  )
 }
 
 function EmptyState({type}){
@@ -897,23 +785,116 @@ function EmptyState({type}){
     <div style={{textAlign:'center',padding:'50px 20px',background:type==='pyq'?'#060f1a':'#0d1120',borderRadius:12,border:`1px dashed ${type==='pyq'?'#0e2040':'#1a1f35'}`}}>
       <p style={{fontSize:36,marginBottom:10}}>{type==='pyq'?'📚':'📭'}</p>
       <p style={{fontSize:13,color:'#475569'}}>No {type==='pyq'?'PYQ entries':'mistakes'} saved yet.</p>
+      <p style={{fontSize:12,color:'#374151',marginTop:4}}>Click <strong style={{color:type==='pyq'?'#22d3ee':'#818cf8'}}>+ {type==='pyq'?'PYQ':'Mistake'}</strong> to add one!</p>
+    </div>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// BACKUP — Export & Import (text + images from IndexedDB)
+// ════════════════════════════════════════════════════════════════
+async function exportBackup(mistakes, pyqs, subjects) {
+  const allKeys = new Set();
+  [...mistakes,...pyqs].forEach(q=>{
+    if(q.imageKey) allKeys.add(q.imageKey);
+    (q.explanationBlocks||[]).forEach(b=>{ if(b.imageKey) allKeys.add(b.imageKey); });
+  });
+  const images = {};
+  for(const k of allKeys){
+    try{ const u = await ImgDB.load(k); if(u) images[k]=u; }catch(e){}
+  }
+  const blob = new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects,mistakes,pyqs,images},null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='MistakeVault_Backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+async function importBackup(file, setSubjects, setMistakes, setPyqs) {
+  return new Promise((res,rej)=>{
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try{
+        const b = JSON.parse(e.target.result);
+        if(!b.mistakes) throw new Error('Invalid backup file');
+        const imgs = b.images||{};
+        for(const [k,dataURL] of Object.entries(imgs)){
+          try{ await ImgDB.save(k, dataURL); }catch(ex){}
+        }
+        if(b.subjects?.length) setSubjects(b.subjects);
+        if(b.mistakes?.length) setMistakes(b.mistakes);
+        if(b.pyqs?.length) setPyqs(b.pyqs);
+        res({mistakes:b.mistakes?.length||0, pyqs:b.pyqs?.length||0, images:Object.keys(imgs).length});
+      }catch(err){ rej(err); }
+    };
+    reader.onerror=rej;
+    reader.readAsText(file);
+  });
+}
+
+function BackupModal({mistakes,pyqs,subjects,setSubjects,setMistakes,setPyqs,onClose}){
+  const[status,setStatus]=useState('');
+  const[loading,setLoading]=useState(false);
+  const fileRef=useRef();
+  const doExport=async()=>{
+    setLoading(true);setStatus('Preparing backup...');
+    try{ await exportBackup(mistakes,pyqs,subjects); setStatus('✅ Backup downloaded! ('+mistakes.length+' mistakes, '+pyqs.length+' PYQs)'); }
+    catch(e){ setStatus('❌ Export failed: '+e.message); }
+    setLoading(false);
+  };
+  const doImport=async file=>{
+    if(!file)return;
+    if(!window.confirm('Import will merge with your current data. Continue?'))return;
+    setLoading(true);setStatus('Importing...');
+    try{
+      const r=await importBackup(file,setSubjects,setMistakes,setPyqs);
+      setStatus('✅ Imported! '+r.mistakes+' mistakes, '+r.pyqs+' PYQs, '+r.images+' images');
+    }catch(e){ setStatus('❌ Import failed: '+e.message); }
+    setLoading(false);
+  };
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{background:'#0a1628',border:'1px solid #06b6d433',borderRadius:10,padding:16}}>
+        <p style={{fontSize:13,fontWeight:700,color:'#22d3ee',marginBottom:6}}>📦 Export Backup</p>
+        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Downloads a <strong style={{color:'#94a3b8'}}>.json</strong> file with all questions, PYQs, and images. Save to Google Drive weekly.</p>
+        <button onClick={doExport} disabled={loading} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
+          ⬇ Download Backup ({mistakes.length+pyqs.length} items)
+        </button>
+      </div>
+      <div style={{background:'#1a0f05',border:'1px solid #f59e0b33',borderRadius:10,padding:16}}>
+        <p style={{fontSize:13,fontWeight:700,color:'#f59e0b',marginBottom:6}}>📂 Import Backup</p>
+        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Restore from a previously exported <strong style={{color:'#94a3b8'}}>.json</strong> file. Merges with current data.</p>
+        <button onClick={()=>fileRef.current.click()} disabled={loading} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
+          ⬆ Import from Backup
+        </button>
+        <input ref={fileRef} type="file" accept=".json" onChange={e=>doImport(e.target.files[0])} style={{display:'none'}}/>
+      </div>
+      <div style={{background:'#131929',border:'1px solid #1e2540',borderRadius:10,padding:14}}>
+        <p style={{fontSize:11,fontWeight:700,color:'#475569',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>💡 Tip</p>
+        <p style={{fontSize:12,color:'#475569',lineHeight:1.7}}>Export every <strong style={{color:'#94a3b8'}}>week</strong> → save to Google Drive. Protects against cache clears or device changes. <strong style={{color:'#f59e0b'}}>Images are included.</strong></p>
+      </div>
+      {status&&<div style={{background:status.startsWith('✅')?'#052010':'#1a0505',border:'1px solid '+(status.startsWith('✅')?'#22c55e33':'#ef444433'),borderRadius:8,padding:'10px 14px',fontSize:13,color:status.startsWith('✅')?'#22c55e':'#ef4444'}}>{status}</div>}
+      {loading&&<div style={{display:'flex',alignItems:'center',gap:8,color:'#475569',fontSize:12}}><div style={{width:16,height:16,border:'2px solid #1e2540',borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>Processing...</div>}
+      <div style={{display:'flex',justifyContent:'flex-end'}}><button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Close</button></div>
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  MAIN APP
-// ══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// MAIN APP
+// ════════════════════════════════════════════════════════════════
 function App(){
   const[ready,setReady]=useState(false);
-  const[subjects,setSubjects]=useLS(LS.SUBJECTS, SUBJECTS_DEFAULT);
-  const[mistakes,setMistakes]=useLS(LS.MISTAKES, []);
-  const[pyqs,setPyqs]=useLS(LS.PYQS, []);
+  const[subjects,setSubjects]=useLocalStorage('mv_subjects_v4',SUBJECTS_DEFAULT);
+  const[mistakes,setMistakes]=useLocalStorage('mv_mistakes_v4',[]);
+  const[pyqs,setPyqs]=useLocalStorage('mv_pyqs_v4',[]);
 
   const[view,setView]=useState('dashboard');
   const[selSub,setSelSub]=useState(null);
   const[selMode,setSelMode]=useState(null);
   const[selChapter,setSelChapter]=useState(null);
+
   const[showAddM,setShowAddM]=useState(false);
   const[showAddP,setShowAddP]=useState(false);
   const[editM,setEditM]=useState(null);
@@ -921,17 +902,20 @@ function App(){
   const[viewM,setViewM]=useState(null);
   const[viewP,setViewP]=useState(null);
   const[showAddSub,setShowAddSub]=useState(false);
+  const[showBackup,setShowBackup]=useState(false);
   const[showAddCh,setShowAddCh]=useState(false);
   const[showDelCh,setShowDelCh]=useState(false);
-  const[showBackup,setShowBackup]=useState(false);
   const[newSubName,setNewSubName]=useState('');
   const[newChName,setNewChName]=useState('');
   const[search,setSearch]=useState('');
   const[filterM,setFilterM]=useState({subject:'',mistakeType:'',difficulty:'',status:''});
-  const[filterP,setFilterP]=useState({subject:'',year:'',status:'',important:false,doubt:false});
+  const[filterP,setFilterP]=useState({subject:'',chapter:'',year:'',status:'',important:false,doubt:false});
   const[sidebarOpen,setSidebarOpen]=useState(true);
 
-  useEffect(()=>{ migrate().then(()=>setReady(true)).catch(()=>setReady(true)); },[]);
+  // Run migration once on startup
+  useEffect(()=>{
+    migrateOldData().then(()=>setReady(true)).catch(()=>setReady(true));
+  },[]);
 
   const sub=subjects.find(s=>s.id===selSub);
   const nav=(v,sid,mode,ch)=>{setView(v);if(sid!==undefined)setSelSub(sid);if(mode!==undefined)setSelMode(mode);if(ch!==undefined)setSelChapter(ch)};
@@ -954,6 +938,7 @@ function App(){
     if(view==='chapter-p')qs=qs.filter(q=>q.subject===selSub&&q.chapter===selChapter);
     else if(view==='all-p'||view==='search'){
       if(filterP.subject)qs=qs.filter(q=>q.subject===filterP.subject);
+      if(filterP.chapter)qs=qs.filter(q=>q.chapter===filterP.chapter);
       if(filterP.year)qs=qs.filter(q=>q.year?.toLowerCase().includes(filterP.year.toLowerCase()));
       if(filterP.status)qs=qs.filter(q=>q.status===filterP.status);
       if(filterP.important)qs=qs.filter(q=>q.isImportant);
@@ -963,42 +948,35 @@ function App(){
     return qs;
   },[pyqs,view,selSub,selChapter,search,filterP]);
 
-  const saveM=q=>setMistakes(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]});
-  const saveP=q=>setPyqs(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]});
-  const delM=async id=>{
-    const q=mistakes.find(x=>x.id===id);
-    if(q?.imageKey)await IDB.remove(q.imageKey);
-    for(const b of q?.explanationBlocks||[])if(b.imageKey)await IDB.remove(b.imageKey);
-    setMistakes(p=>p.filter(x=>x.id!==id));setViewM(null);
-  };
-  const delP=async id=>{
-    const q=pyqs.find(x=>x.id===id);
-    if(q?.imageKey)await IDB.remove(q.imageKey);
-    setPyqs(p=>p.filter(x=>x.id!==id));setViewP(null);
-  };
+  const saveM=q=>{setMistakes(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]})};
+  const saveP=q=>{setPyqs(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]})};
+  const delM=async id=>{const q=mistakes.find(x=>x.id===id);if(q?.imageKey)await ImgDB.remove(q.imageKey);for(const b of q?.explanationBlocks||[])if(b.imageKey)await ImgDB.remove(b.imageKey);setMistakes(p=>p.filter(x=>x.id!==id));setViewM(null)};
+  const delP=async id=>{const q=pyqs.find(x=>x.id===id);if(q?.imageKey)await ImgDB.remove(q.imageKey);setPyqs(p=>p.filter(x=>x.id!==id));setViewP(null)};
+
   const addSubject=()=>{if(!newSubName.trim())return;const colors=['#818cf8','#34d399','#f472b6','#38bdf8','#fb923c','#a78bfa','#22d3ee','#fbbf24'];setSubjects(p=>[...p,{id:'s'+Date.now(),name:newSubName.trim(),color:colors[p.length%colors.length],chapters:[]}]);setNewSubName('');setShowAddSub(false)};
   const addChapter=()=>{if(!newChName.trim()||!selSub)return;setSubjects(p=>p.map(s=>s.id===selSub?{...s,chapters:[...s.chapters,newChName.trim()]}:s));setNewChName('');setShowAddCh(false)};
   const delChapter=ch=>{if(!window.confirm(`Delete chapter "${ch}"?`))return;setSubjects(p=>p.map(s=>s.id===selSub?{...s,chapters:s.chapters.filter(c=>c!==ch)}:s))};
 
   const isSearch=search.trim().length>0;
 
-  if(!ready)return(
+  if(!ready) return(
     <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'#0a0d14'}}>
       <div style={{width:40,height:40,border:'3px solid #1e2540',borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
       <p style={{color:'#475569',fontSize:13}}>Loading MistakeVault...</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
   return(
     <div style={{display:'flex',height:'100vh',background:'#0a0d14',overflow:'hidden'}}>
       {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?240:52,background:'#060912',borderRight:'1px solid #0d1120',display:'flex',flexDirection:'column',flexShrink:0,transition:'width .2s',overflow:'hidden'}}>
+      <div style={{width:sidebarOpen?238:52,background:'#060912',borderRight:'1px solid #0d1120',display:'flex',flexDirection:'column',flexShrink:0,transition:'width .2s',overflow:'hidden'}}>
         <div style={{padding:'13px 10px',borderBottom:'1px solid #0d1120',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
           <button onClick={()=>setSidebarOpen(o=>!o)} style={{background:'none',border:'none',color:'#6366f1',fontSize:16,padding:'5px 7px',borderRadius:6,flexShrink:0}}>☰</button>
           {sidebarOpen&&<div><span style={{fontSize:13,fontWeight:800,color:'#818cf8',letterSpacing:.5}}>MistakeVault</span><span style={{fontSize:9,color:'#374151',display:'block'}}>GATE Prep Tracker</span></div>}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'6px 0'}}>
-          {[{id:'dashboard',icon:'◈',label:'Dashboard'},{id:'all-m',icon:'⚡',label:'All Mistakes',bc:'#6366f1',badge:mistakes.length},{id:'all-p',icon:'📚',label:'All PYQs',bc:'#06b6d4',badge:pyqs.length}].map(({id,icon,label,bc,badge})=>(
+          {[{id:'dashboard',icon:'◈',label:'Dashboard',badge:0},{id:'all-m',icon:'⚡',label:'All Mistakes',badge:mistakes.length,bc:'#6366f1'},{id:'all-p',icon:'📚',label:'All PYQs',badge:pyqs.length,bc:'#06b6d4'}].map(({id,icon,label,badge,bc})=>(
             <button key={id} onClick={()=>nav(id,null,null,null)}
               style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'9px 12px',background:view===id?'#6366f115':'none',border:'none',color:view===id?'#818cf8':'#475569',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:view===id?'2px solid #6366f1':'2px solid transparent'}}>
               <span style={{width:18,textAlign:'center',flexShrink:0}}>{icon}</span>
@@ -1021,7 +999,7 @@ function App(){
                 {sidebarOpen&&<><span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
                 <div style={{display:'flex',gap:3}}>{mCnt>0&&<Badge count={mCnt} color={s.color}/>}{pCnt>0&&<Badge count={pCnt} color="#06b6d4"/>}</div></>}
               </button>
-            );
+            )
           })}
           {sidebarOpen&&<button onClick={()=>setShowAddSub(true)} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 12px',background:'none',border:'none',color:'#374151',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:'2px solid transparent'}}>
             <span style={{marginLeft:4}}>+</span><span>Add Subject</span>
@@ -1034,7 +1012,7 @@ function App(){
         <div style={{padding:'10px 18px',borderBottom:'1px solid #0d1120',display:'flex',alignItems:'center',gap:10,background:'#060912',flexShrink:0}}>
           <div style={{flex:1,position:'relative'}}>
             <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',color:'#374151',fontSize:14,pointerEvents:'none'}}>⌕</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions, PYQs, tags..." style={{paddingLeft:32,fontSize:13}}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions, PYQs, tags, notes..." style={{paddingLeft:32,fontSize:13}}/>
           </div>
           {!isSearch&&<>
             <button onClick={()=>setShowAddM(true)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',fontSize:12,fontWeight:700,whiteSpace:'nowrap',flexShrink:0}}>+ Mistake</button>
@@ -1044,6 +1022,7 @@ function App(){
         </div>
 
         <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {/* SEARCH */}
           {isSearch&&<div>
             <h2 style={{fontSize:16,fontWeight:700,marginBottom:4}}>Search: "{search}"</h2>
             <p style={{fontSize:12,color:'#475569',marginBottom:16}}>{visM.length} mistakes · {visP.length} PYQs</p>
@@ -1060,10 +1039,18 @@ function App(){
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
               <div><h2 style={{fontSize:17,fontWeight:700}}>All Mistakes</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visM.length} questions</p></div>
               <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-                <select value={filterM.subject} onChange={e=>setFilterM(f=>({...f,subject:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                <select value={filterM.mistakeType} onChange={e=>setFilterM(f=>({...f,mistakeType:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Types</option>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}</select>
-                <select value={filterM.difficulty} onChange={e=>setFilterM(f=>({...f,difficulty:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Difficulty</option>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}</select>
-                <select value={filterM.status} onChange={e=>setFilterM(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Status</option>{MISTAKE_STATUSES.map(s=><option key={s}>{s}</option>)}</select>
+                <select value={filterM.subject} onChange={e=>setFilterM(f=>({...f,subject:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <select value={filterM.mistakeType} onChange={e=>setFilterM(f=>({...f,mistakeType:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Types</option>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}
+                </select>
+                <select value={filterM.difficulty} onChange={e=>setFilterM(f=>({...f,difficulty:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Difficulty</option>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}
+                </select>
+                <select value={filterM.status} onChange={e=>setFilterM(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Status</option>{MISTAKE_STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
               </div>
             </div>
             {visM.length===0?<EmptyState type="mistake"/>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visM.map(q=><MistakeCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewM(q)}/>)}</div>}
@@ -1073,9 +1060,13 @@ function App(){
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
               <div><h2 style={{fontSize:17,fontWeight:700,color:'#22d3ee'}}>All PYQs</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visP.length} entries</p></div>
               <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-                <select value={filterP.subject} onChange={e=>setFilterP(f=>({...f,subject:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-                <input value={filterP.year} onChange={e=>setFilterP(f=>({...f,year:e.target.value}))} placeholder="Year/exam" style={{width:120,fontSize:11,padding:'5px 8px'}}/>
-                <select value={filterP.status} onChange={e=>setFilterP(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}><option value="">All Status</option>{PYQ_STATUSES.map(s=><option key={s}>{s}</option>)}</select>
+                <select value={filterP.subject} onChange={e=>setFilterP(f=>({...f,subject:e.target.value,chapter:''}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <input value={filterP.year} onChange={e=>setFilterP(f=>({...f,year:e.target.value}))} placeholder="Filter by year/exam" style={{width:130,fontSize:11,padding:'5px 8px'}}/>
+                <select value={filterP.status} onChange={e=>setFilterP(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
+                  <option value="">All Status</option>{PYQ_STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
                 <button onClick={()=>setFilterP(f=>({...f,important:!f.important}))} style={{background:filterP.important?'#f59e0b22':'#131929',border:`1px solid ${filterP.important?'#f59e0b':'#1e2540'}`,borderRadius:7,color:filterP.important?'#f59e0b':'#64748b',padding:'5px 10px',fontSize:11}}>⭐</button>
                 <button onClick={()=>setFilterP(f=>({...f,doubt:!f.doubt}))} style={{background:filterP.doubt?'#ef444422':'#131929',border:`1px solid ${filterP.doubt?'#ef4444':'#1e2540'}`,borderRadius:7,color:filterP.doubt?'#ef4444':'#64748b',padding:'5px 10px',fontSize:11}}>❓</button>
               </div>
@@ -1085,23 +1076,29 @@ function App(){
 
           {!isSearch&&view==='subject'&&sub&&<div>
             <div style={{marginBottom:24}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}><span style={{width:10,height:10,borderRadius:'50%',background:sub.color,display:'inline-block'}}/><h2 style={{fontSize:20,fontWeight:800,color:sub.color}}>{sub.name}</h2></div>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                <span style={{width:10,height:10,borderRadius:'50%',background:sub.color,display:'inline-block'}}/>
+                <h2 style={{fontSize:20,fontWeight:800,color:sub.color}}>{sub.name}</h2>
+              </div>
               <p style={{fontSize:12,color:'#475569'}}>{mistakes.filter(q=>q.subject===sub.id).length} mistakes · {pyqs.filter(q=>q.subject===sub.id).length} PYQs</p>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,maxWidth:640}}>
-              {[{mode:'mistake',icon:'⚡',label:'Test Series Mistakes',color:'#818cf8',bg:'#0d0f1f',bc:'#6366f130',cnt:mistakes.filter(q=>q.subject===sub.id).length,desc:'Track wrong answers from mock tests. Upload screenshots, write explanations.'},
-                {mode:'pyq',icon:'📚',label:'PYQ Tracker',color:'#22d3ee',bg:'#060f1a',bc:'#06b6d430',cnt:pyqs.filter(q=>q.subject===sub.id).length,desc:'Log previous year questions. Track year, solution location, notebook reference.'}
-              ].map(({mode,icon,label,color,bg,bc,cnt,desc})=>(
-                <div key={mode} onClick={()=>nav('mode',selSub,mode,null)}
-                  style={{background:`linear-gradient(135deg,${bg},${bg}ee)`,border:`1px solid ${bc}`,borderRadius:14,padding:24,cursor:'pointer',transition:'transform .15s,border-color .2s'}}
-                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor=color}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor=bc}}>
-                  <div style={{fontSize:32,marginBottom:12}}>{icon}</div>
-                  <h3 style={{fontSize:15,fontWeight:800,color,marginBottom:6}}>{label}</h3>
-                  <p style={{fontSize:12,color:'#475569',marginBottom:14,lineHeight:1.5}}>{desc}</p>
-                  <span style={{fontSize:22,fontWeight:800,color}}>{cnt}</span><span style={{fontSize:11,color:'#475569',marginLeft:6}}>saved</span>
-                </div>
-              ))}
+              <div onClick={()=>nav('mode',selSub,'mistake',null)} style={{background:'linear-gradient(135deg,#0d0f1f,#131629)',border:'1px solid #6366f130',borderRadius:14,padding:24,cursor:'pointer',transition:'transform .15s,border-color .2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#6366f1'}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#6366f130'}}>
+                <div style={{fontSize:32,marginBottom:12}}>⚡</div>
+                <h3 style={{fontSize:15,fontWeight:800,color:'#818cf8',marginBottom:6}}>Test Series Mistakes</h3>
+                <p style={{fontSize:12,color:'#475569',marginBottom:14,lineHeight:1.5}}>Track wrong answers from mock tests. Upload screenshots, write explanations.</p>
+                <span style={{fontSize:22,fontWeight:800,color:'#6366f1'}}>{mistakes.filter(q=>q.subject===sub.id).length}</span><span style={{fontSize:11,color:'#475569',marginLeft:6}}>saved</span>
+              </div>
+              <div onClick={()=>nav('mode',selSub,'pyq',null)} style={{background:'linear-gradient(135deg,#060f1a,#091525)',border:'1px solid #06b6d430',borderRadius:14,padding:24,cursor:'pointer',transition:'transform .15s,border-color .2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#06b6d4'}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#06b6d430'}}>
+                <div style={{fontSize:32,marginBottom:12}}>📚</div>
+                <h3 style={{fontSize:15,fontWeight:800,color:'#22d3ee',marginBottom:6}}>PYQ Tracker</h3>
+                <p style={{fontSize:12,color:'#475569',marginBottom:14,lineHeight:1.5}}>Log previous year questions. Track year, solution location, notebook reference.</p>
+                <span style={{fontSize:22,fontWeight:800,color:'#06b6d4'}}>{pyqs.filter(q=>q.subject===sub.id).length}</span><span style={{fontSize:11,color:'#475569',marginLeft:6}}>saved</span>
+              </div>
             </div>
           </div>}
 
@@ -1132,7 +1129,7 @@ function App(){
                       {cnt>0&&<span style={{fontSize:10,background:accent+'22',color:accent,padding:'1px 6px',borderRadius:5,fontWeight:700}}>{cnt}</span>}
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>}
@@ -1159,10 +1156,10 @@ function App(){
 
       {/* MODALS */}
       {(showAddM||editM)&&<Modal title={editM?'Edit Mistake':'Add Mistake'} onClose={()=>{setShowAddM(false);setEditM(null)}} wide>
-        <MistakeForm q={editM} subjects={subjects} defSub={selSub} defCh={view==='chapter-m'?selChapter:''} onSave={q=>{saveM(q);setEditM(null);setShowAddM(false)}} onClose={()=>{setShowAddM(false);setEditM(null)}}/>
+        <MistakeForm q={editM} subjects={subjects} defaultSubject={selSub} defaultChapter={view==='chapter-m'?selChapter:''} onSave={q=>{saveM(q);setEditM(null);setShowAddM(false)}} onClose={()=>{setShowAddM(false);setEditM(null)}}/>
       </Modal>}
       {(showAddP||editP)&&<Modal title={editP?'Edit PYQ':'Add PYQ'} onClose={()=>{setShowAddP(false);setEditP(null)}} wide>
-        <PYQForm q={editP} subjects={subjects} defSub={selSub} defCh={view==='chapter-p'?selChapter:''} onSave={q=>{saveP(q);setEditP(null);setShowAddP(false)}} onClose={()=>{setShowAddP(false);setEditP(null)}}/>
+        <PYQForm q={editP} subjects={subjects} defaultSubject={selSub} defaultChapter={view==='chapter-p'?selChapter:''} onSave={q=>{saveP(q);setEditP(null);setShowAddP(false)}} onClose={()=>{setShowAddP(false);setEditP(null)}}/>
       </Modal>}
       {viewM&&!editM&&<Modal title={viewM.title} onClose={()=>setViewM(null)} wide>
         <MistakeDetail q={viewM} subjects={subjects} onClose={()=>setViewM(null)} onEdit={q=>{setEditM(q);setViewM(null)}} onDelete={delM}/>
@@ -1188,7 +1185,7 @@ function App(){
         </div>
       </Modal>}
       {showDelCh&&sub&&<Modal title={`Delete Chapter from ${sub.name}`} onClose={()=>setShowDelCh(false)}>
-        <p style={{fontSize:12,color:'#64748b',marginBottom:12}}>Questions won't be deleted, just lose chapter assignment.</p>
+        <p style={{fontSize:12,color:'#64748b',marginBottom:12}}>Select chapter to delete. Questions won't be deleted.</p>
         <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:300,overflowY:'auto'}}>
           {sub.chapters.map(ch=>(
             <div key={ch} style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'#131929',borderRadius:8,padding:'9px 14px'}}>
@@ -1202,7 +1199,7 @@ function App(){
         </div>
       </Modal>}
     </div>
-  );
+  )
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
