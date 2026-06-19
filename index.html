@@ -6,7 +6,6 @@
 <title>MistakeVault — GATE Study Tool</title>
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -24,8 +23,14 @@ label{font-size:11px;color:#64748b;display:block;margin-bottom:5px;font-weight:5
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
-const {useState,useEffect,useRef,useMemo,useCallback}=React;
+<script>
+const {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback
+} = React;
 
 // ════════════════════════════════════════════════════════════════
 // IMAGE DATABASE — IndexedDB stores all images separately
@@ -38,17 +43,18 @@ const ImgDB = (() => {
   const DB_VER = 1;
   const STORE = 'images';
   let _db = null;
-
   function open() {
     if (_db) return Promise.resolve(_db);
     return new Promise((res, rej) => {
       const req = indexedDB.open(DB_NAME, DB_VER);
       req.onupgradeneeded = e => e.target.result.createObjectStore(STORE);
-      req.onsuccess = e => { _db = e.target.result; res(_db); };
+      req.onsuccess = e => {
+        _db = e.target.result;
+        res(_db);
+      };
       req.onerror = e => rej(e.target.error);
     });
   }
-
   async function save(key, dataUrl) {
     if (!key || !dataUrl) return;
     const db = await open();
@@ -59,7 +65,6 @@ const ImgDB = (() => {
       tx.onerror = e => rej(e.target.error);
     });
   }
-
   async function load(key) {
     if (!key) return null;
     const db = await open();
@@ -70,7 +75,6 @@ const ImgDB = (() => {
       req.onerror = e => rej(e.target.error);
     });
   }
-
   async function remove(key) {
     if (!key) return;
     const db = await open();
@@ -81,8 +85,11 @@ const ImgDB = (() => {
       tx.onerror = e => rej(e.target.error);
     });
   }
-
-  return { save, load, remove };
+  return {
+    save,
+    load,
+    remove
+  };
 })();
 
 // ── PASTE ROUTER ─────────────────────────────────────────────────────
@@ -97,37 +104,97 @@ const expImgKey = (questionId, blockId) => `${questionId}_exp_${blockId}`;
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════════════════════
-const SUBJECTS_DEFAULT=[
-  {id:'dm',name:'Discrete Mathematics',color:'#818cf8',chapters:['Set Theory','Propositional Logic','Relations','Functions','Graph Theory','Combinatorics','Recurrence','Lattice']},
-  {id:'em',name:'Engineering Mathematics',color:'#34d399',chapters:['Calculus','Linear Algebra','Probability','Statistics','Differential Equations','Numerical Methods']},
-  {id:'cp',name:'C Programming',color:'#f59e0b',chapters:['Basics','Pointers','Arrays','Strings','Structures','File I/O','Dynamic Memory','Preprocessor']},
-  {id:'ds',name:'Data Structures',color:'#f472b6',chapters:['Arrays & LL','Stacks & Queues','Trees','Heaps','Hashing','Graphs','Tries','Segment Trees']},
-  {id:'al',name:'Algorithms',color:'#38bdf8',chapters:['Sorting','Searching','Greedy','Divide & Conquer','Dynamic Programming','Graph Algorithms','String Algorithms','NP Theory']},
-  {id:'dl',name:'Digital Logic',color:'#a78bfa',chapters:['Number Systems','Boolean Algebra','Logic Gates','Combinational Circuits','Sequential Circuits','Minimization','Counters','Memory']},
-  {id:'ca',name:'Computer Architecture',color:'#fb923c',chapters:['ISA','ALU Design','Pipelining','Memory Hierarchy','Cache','I/O Systems','Parallel Computing','Performance']},
-  {id:'os',name:'Operating Systems',color:'#4ade80',chapters:['Process Management','Scheduling','Synchronization','Deadlock','Memory Management','Virtual Memory','File Systems','I/O Management']},
-  {id:'db',name:'DBMS',color:'#e879f9',chapters:['ER Model','Relational Model','SQL','Normalization','Transaction','Concurrency','Recovery','Indexing']},
-  {id:'cn',name:'Computer Networks',color:'#22d3ee',chapters:['Physical Layer','Data Link','MAC','Network Layer','Routing','Transport Layer','Application Layer','Network Security']},
-  {id:'ap',name:'Aptitude',color:'#fbbf24',chapters:['Number Theory','Algebra','Geometry','Permutation & Combination','Probability','Time & Work','Speed & Distance','Logical Reasoning']},
-];
-const MISTAKE_TYPES=['Concept Mistake','Calculation Mistake','Silly Mistake','Time Pressure','Formula Mistake'];
-const DIFFICULTIES=['Easy','Medium','Hard'];
-const MISTAKE_STATUSES=['New','Need Revision','Solved Again','Mastered'];
-const PYQ_STATUSES=['Not Revised','Need Discussion','Solved','Mastered'];
-const SOLUTION_LOCATIONS=['Notebook','Digital Notes','Video Solution','Book Solution','Other'];
-const STATUS_COLORS={New:'#f59e0b','Need Revision':'#ef4444','Solved Again':'#3b82f6',Mastered:'#22c55e','Not Revised':'#f59e0b','Need Discussion':'#ef4444',Solved:'#3b82f6'};
-const COMMON_TAGS_MISTAKE=['#important','#revise','#repeat-error','#formula','#conceptual','#tricky'];
-const COMMON_TAGS_PYQ=['#important','#doubt','#revise','#pyq','#tricky','#must-do'];
+const SUBJECTS_DEFAULT = [{
+  id: 'dm',
+  name: 'Discrete Mathematics',
+  color: '#818cf8',
+  chapters: ['Set Theory', 'Propositional Logic', 'Relations', 'Functions', 'Graph Theory', 'Combinatorics', 'Recurrence', 'Lattice']
+}, {
+  id: 'em',
+  name: 'Engineering Mathematics',
+  color: '#34d399',
+  chapters: ['Calculus', 'Linear Algebra', 'Probability', 'Statistics', 'Differential Equations', 'Numerical Methods']
+}, {
+  id: 'cp',
+  name: 'C Programming',
+  color: '#f59e0b',
+  chapters: ['Basics', 'Pointers', 'Arrays', 'Strings', 'Structures', 'File I/O', 'Dynamic Memory', 'Preprocessor']
+}, {
+  id: 'ds',
+  name: 'Data Structures',
+  color: '#f472b6',
+  chapters: ['Arrays & LL', 'Stacks & Queues', 'Trees', 'Heaps', 'Hashing', 'Graphs', 'Tries', 'Segment Trees']
+}, {
+  id: 'al',
+  name: 'Algorithms',
+  color: '#38bdf8',
+  chapters: ['Sorting', 'Searching', 'Greedy', 'Divide & Conquer', 'Dynamic Programming', 'Graph Algorithms', 'String Algorithms', 'NP Theory']
+}, {
+  id: 'dl',
+  name: 'Digital Logic',
+  color: '#a78bfa',
+  chapters: ['Number Systems', 'Boolean Algebra', 'Logic Gates', 'Combinational Circuits', 'Sequential Circuits', 'Minimization', 'Counters', 'Memory']
+}, {
+  id: 'ca',
+  name: 'Computer Architecture',
+  color: '#fb923c',
+  chapters: ['ISA', 'ALU Design', 'Pipelining', 'Memory Hierarchy', 'Cache', 'I/O Systems', 'Parallel Computing', 'Performance']
+}, {
+  id: 'os',
+  name: 'Operating Systems',
+  color: '#4ade80',
+  chapters: ['Process Management', 'Scheduling', 'Synchronization', 'Deadlock', 'Memory Management', 'Virtual Memory', 'File Systems', 'I/O Management']
+}, {
+  id: 'db',
+  name: 'DBMS',
+  color: '#e879f9',
+  chapters: ['ER Model', 'Relational Model', 'SQL', 'Normalization', 'Transaction', 'Concurrency', 'Recovery', 'Indexing']
+}, {
+  id: 'cn',
+  name: 'Computer Networks',
+  color: '#22d3ee',
+  chapters: ['Physical Layer', 'Data Link', 'MAC', 'Network Layer', 'Routing', 'Transport Layer', 'Application Layer', 'Network Security']
+}, {
+  id: 'ap',
+  name: 'Aptitude',
+  color: '#fbbf24',
+  chapters: ['Number Theory', 'Algebra', 'Geometry', 'Permutation & Combination', 'Probability', 'Time & Work', 'Speed & Distance', 'Logical Reasoning']
+}];
+const MISTAKE_TYPES = ['Concept Mistake', 'Calculation Mistake', 'Silly Mistake', 'Time Pressure', 'Formula Mistake'];
+const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
+const MISTAKE_STATUSES = ['New', 'Need Revision', 'Solved Again', 'Mastered'];
+const PYQ_STATUSES = ['Not Revised', 'Need Discussion', 'Solved', 'Mastered'];
+const SOLUTION_LOCATIONS = ['Notebook', 'Digital Notes', 'Video Solution', 'Book Solution', 'Other'];
+const STATUS_COLORS = {
+  New: '#f59e0b',
+  'Need Revision': '#ef4444',
+  'Solved Again': '#3b82f6',
+  Mastered: '#22c55e',
+  'Not Revised': '#f59e0b',
+  'Need Discussion': '#ef4444',
+  Solved: '#3b82f6'
+};
+const COMMON_TAGS_MISTAKE = ['#important', '#revise', '#repeat-error', '#formula', '#conceptual', '#tricky'];
+const COMMON_TAGS_PYQ = ['#important', '#doubt', '#revise', '#pyq', '#tricky', '#must-do'];
 
 // ════════════════════════════════════════════════════════════════
 // localStorage hook — only for text/metadata (never images)
 // ════════════════════════════════════════════════════════════════
 function useLocalStorage(key, init) {
   const [val, setVal] = useState(() => {
-    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : init; } catch { return init; }
+    try {
+      const s = localStorage.getItem(key);
+      return s ? JSON.parse(s) : init;
+    } catch {
+      return init;
+    }
   });
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.warn('localStorage save failed:', e); }
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {
+      console.warn('localStorage save failed:', e);
+    }
   }, [key, val]);
   return [val, setVal];
 }
@@ -138,7 +205,10 @@ function useLocalStorage(key, init) {
 function useImage(key) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
-    if (!key) { setUrl(null); return; }
+    if (!key) {
+      setUrl(null);
+      return;
+    }
     ImgDB.load(key).then(u => setUrl(u || null)).catch(() => setUrl(null));
   }, [key]);
   return url;
@@ -150,8 +220,8 @@ function useImage(key) {
 // ════════════════════════════════════════════════════════════════
 async function migrateOldData() {
   try {
-    const OLD_KEYS = ['mt_questions','mt_questions_v2','mv_mistakes_v1','mv_mistakes_v2','mv_mistakes_v3'];
-    const OLD_SUB_KEYS = ['mt_subjects','mt_subjects_v2','mv_subjects_v2','mv_subjects_v3'];
+    const OLD_KEYS = ['mt_questions', 'mt_questions_v2', 'mv_mistakes_v1', 'mv_mistakes_v2', 'mv_mistakes_v3'];
+    const OLD_SUB_KEYS = ['mt_subjects', 'mt_subjects_v2', 'mv_subjects_v2', 'mv_subjects_v3'];
     const NEW_M = 'mv_mistakes_v4';
     const NEW_S = 'mv_subjects_v4';
     const NEW_P = 'mv_pyqs_v4';
@@ -160,7 +230,10 @@ async function migrateOldData() {
     if (!localStorage.getItem(NEW_S)) {
       for (const k of OLD_SUB_KEYS) {
         const raw = localStorage.getItem(k);
-        if (raw) { localStorage.setItem(NEW_S, raw); break; }
+        if (raw) {
+          localStorage.setItem(NEW_S, raw);
+          break;
+        }
       }
     }
 
@@ -172,9 +245,10 @@ async function migrateOldData() {
         try {
           const items = JSON.parse(raw);
           if (!Array.isArray(items) || items.length === 0) continue;
-
           const cleaned = await Promise.all(items.map(async q => {
-            const clean = { ...q };
+            const clean = {
+              ...q
+            };
 
             // Move main imageUrl to IndexedDB
             if (q.imageUrl && q.imageUrl.startsWith('data:')) {
@@ -190,21 +264,25 @@ async function migrateOldData() {
                 if (b.type === 'image' && b.value && b.value.startsWith('data:')) {
                   const bk = expImgKey(q.id, b.id);
                   await ImgDB.save(bk, b.value);
-                  return { ...b, value: '', imageKey: bk };
+                  return {
+                    ...b,
+                    value: '',
+                    imageKey: bk
+                  };
                 }
                 return b;
               }));
             }
-
             delete clean.imageUrl; // will use imageKey going forward
             if (!clean.imageKey) clean.imageKey = '';
             return clean;
           }));
-
           localStorage.setItem(NEW_M, JSON.stringify(cleaned));
           console.log('[MistakeVault] Migrated', cleaned.length, 'mistakes from', k, '— images moved to IndexedDB ✅');
           break;
-        } catch(e) { console.warn('Migration parse error', e); }
+        } catch (e) {
+          console.warn('Migration parse error', e);
+        }
       }
     }
 
@@ -218,7 +296,9 @@ async function migrateOldData() {
           const items = JSON.parse(raw);
           if (!Array.isArray(items) || items.length === 0) continue;
           const cleaned = await Promise.all(items.map(async q => {
-            const clean = { ...q };
+            const clean = {
+              ...q
+            };
             if (q.imageUrl && q.imageUrl.startsWith('data:')) {
               const k2 = imgKey(q.id, 'pyq_main');
               await ImgDB.save(k2, q.imageUrl);
@@ -230,59 +310,198 @@ async function migrateOldData() {
           }));
           localStorage.setItem(NEW_P, JSON.stringify(cleaned));
           break;
-        } catch(e) {}
+        } catch (e) {}
       }
     }
-  } catch(e) { console.warn('Migration error:', e); }
+  } catch (e) {
+    console.warn('Migration error:', e);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
 // SMALL COMPONENTS
 // ════════════════════════════════════════════════════════════════
-const Badge=({count,color})=>count?<span style={{background:color+'33',color,fontSize:10,fontWeight:700,padding:'1px 7px',borderRadius:10,minWidth:20,textAlign:'center'}}>{count}</span>:null;
-const StatusBadge=({status})=>{const c=STATUS_COLORS[status]||'#888';return<span style={{background:c+'22',color:c,fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>{status}</span>};
-
-function Modal({children,onClose,title,wide}){
-  useEffect(()=>{const h=e=>{if(e.key==='Escape')onClose()};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h)},[]);
-  return(
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.8)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:1000,overflowY:'auto',padding:'32px 16px',backdropFilter:'blur(4px)'}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:'#0f1422',border:'1px solid #1e2540',borderRadius:14,width:'100%',maxWidth:wide?800:520,padding:24,marginBottom:40,boxShadow:'0 25px 60px rgba(0,0,0,.6)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h2 style={{fontSize:15,fontWeight:700,color:'#e2e8f0'}}>{title}</h2>
-          <button onClick={onClose} style={{background:'#1a1f35',border:'none',color:'#64748b',fontSize:18,width:28,height:28,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
+const Badge = ({
+  count,
+  color
+}) => count ? /*#__PURE__*/React.createElement("span", {
+  style: {
+    background: color + '33',
+    color,
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '1px 7px',
+    borderRadius: 10,
+    minWidth: 20,
+    textAlign: 'center'
+  }
+}, count) : null;
+const StatusBadge = ({
+  status
+}) => {
+  const c = STATUS_COLORS[status] || '#888';
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: c + '22',
+      color: c,
+      fontSize: 10,
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: 6
+    }
+  }, status);
+};
+function Modal({
+  children,
+  onClose,
+  title,
+  wide
+}) {
+  useEffect(() => {
+    const h = e => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.8)',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      zIndex: 1000,
+      overflowY: 'auto',
+      padding: '32px 16px',
+      backdropFilter: 'blur(4px)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: '#0f1422',
+      border: '1px solid #1e2540',
+      borderRadius: 14,
+      width: '100%',
+      maxWidth: wide ? 800 : 520,
+      padding: 24,
+      marginBottom: 40,
+      boxShadow: '0 25px 60px rgba(0,0,0,.6)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 15,
+      fontWeight: 700,
+      color: '#e2e8f0'
+    }
+  }, title), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: '#1a1f35',
+      border: 'none',
+      color: '#64748b',
+      fontSize: 18,
+      width: 28,
+      height: 28,
+      borderRadius: 6,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, "\xD7")), children));
 }
-
-function TagInput({tags,onChange,suggestions}){
-  const[inp,setInp]=useState('');
-  const add=t=>{t=t.startsWith('#')?t:'#'+t;if(t.length>1&&!tags.includes(t))onChange([...tags,t]);setInp('')};
-  return(
-    <div>
-      {tags.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:8}}>
-        {tags.map(t=><span key={t} style={{background:'#1a1f35',border:'1px solid #252b42',borderRadius:6,padding:'2px 8px',fontSize:11,display:'flex',alignItems:'center',gap:4,color:'#94a3b8'}}>
-          {t}<button onClick={()=>onChange(tags.filter(x=>x!==t))} style={{background:'none',border:'none',color:'#475569',fontSize:13,padding:0,lineHeight:1}}>×</button>
-        </span>)}
-      </div>}
-      <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();inp.trim()&&add(inp.trim())}}} placeholder="Type tag + Enter"/>
-      <div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
-        {(suggestions||[]).map(t=>!tags.includes(t)&&<button key={t} onClick={()=>add(t)} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,padding:'2px 7px',fontSize:10,color:'#64748b'}}>{t}</button>)}
-      </div>
-    </div>
-  )
+function TagInput({
+  tags,
+  onChange,
+  suggestions
+}) {
+  const [inp, setInp] = useState('');
+  const add = t => {
+    t = t.startsWith('#') ? t : '#' + t;
+    if (t.length > 1 && !tags.includes(t)) onChange([...tags, t]);
+    setInp('');
+  };
+  return /*#__PURE__*/React.createElement("div", null, tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginBottom: 8
+    }
+  }, tags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      background: '#1a1f35',
+      border: '1px solid #252b42',
+      borderRadius: 6,
+      padding: '2px 8px',
+      fontSize: 11,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      color: '#94a3b8'
+    }
+  }, t, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onChange(tags.filter(x => x !== t)),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#475569',
+      fontSize: 13,
+      padding: 0,
+      lineHeight: 1
+    }
+  }, "\xD7")))), /*#__PURE__*/React.createElement("input", {
+    value: inp,
+    onChange: e => setInp(e.target.value),
+    onKeyDown: e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        inp.trim() && add(inp.trim());
+      }
+    },
+    placeholder: "Type tag + Enter"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginTop: 6
+    }
+  }, (suggestions || []).map(t => !tags.includes(t) && /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => add(t),
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 5,
+      padding: '2px 7px',
+      fontSize: 10,
+      color: '#64748b'
+    }
+  }, t))));
 }
 
 // ════════════════════════════════════════════════════════════════
 // IMAGE UPLOAD — saves to IndexedDB, returns a key (not base64)
 // ════════════════════════════════════════════════════════════════
-function ImageUploadField({ imageKey, onSave, onRemove }) {
+function ImageUploadField({
+  imageKey,
+  onSave,
+  onRemove
+}) {
   const ref = useRef();
   const url = useImage(imageKey);
-
-  const handleFile = async (file) => {
+  const handleFile = async file => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async ev => {
@@ -310,82 +529,243 @@ function ImageUploadField({ imageKey, onSave, onRemove }) {
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
   }, [imageKey]);
-
-  return (
-    <div>
-      {url ? (
-        <div style={{position:'relative',marginBottom:8}}>
-          <img src={url} alt="screenshot" style={{width:'100%',borderRadius:8,maxHeight:260,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>
-          <button onClick={async()=>{if(imageKey)await ImgDB.remove(imageKey);onRemove();}} style={{position:'absolute',top:8,right:8,background:'#ef4444cc',border:'none',borderRadius:6,color:'#fff',padding:'3px 10px',fontSize:11,fontWeight:600}}>Remove</button>
-        </div>
-      ) : (
-        <div onClick={()=>ref.current.click()}
-          style={{border:'2px dashed #1e2540',borderRadius:8,padding:20,textAlign:'center',cursor:'pointer',color:'#3d4460',fontSize:13,transition:'border-color .2s,color .2s'}}
-          onMouseEnter={e=>{e.currentTarget.style.borderColor='#6366f1';e.currentTarget.style.color='#818cf8'}}
-          onMouseLeave={e=>{e.currentTarget.style.borderColor='#1e2540';e.currentTarget.style.color='#3d4460'}}>
-          📷 <strong>Click</strong> to upload · <strong>Ctrl+V</strong> anywhere to paste screenshot
-        </div>
-      )}
-      <input ref={ref} type="file" accept="image/*" onChange={e=>handleFile(e.target.files[0])} style={{display:'none'}}/>
-      {url&&<button onClick={()=>ref.current.click()} style={{marginTop:6,background:'#131929',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'5px 12px',fontSize:12}}>Change Image</button>}
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", null, url ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: "screenshot",
+    style: {
+      width: '100%',
+      borderRadius: 8,
+      maxHeight: 260,
+      objectFit: 'contain',
+      background: '#060912',
+      border: '1px solid #1e2540'
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: async () => {
+      if (imageKey) await ImgDB.remove(imageKey);
+      onRemove();
+    },
+    style: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      background: '#ef4444cc',
+      border: 'none',
+      borderRadius: 6,
+      color: '#fff',
+      padding: '3px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "Remove")) : /*#__PURE__*/React.createElement("div", {
+    onClick: () => ref.current.click(),
+    style: {
+      border: '2px dashed #1e2540',
+      borderRadius: 8,
+      padding: 20,
+      textAlign: 'center',
+      cursor: 'pointer',
+      color: '#3d4460',
+      fontSize: 13,
+      transition: 'border-color .2s,color .2s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.borderColor = '#6366f1';
+      e.currentTarget.style.color = '#818cf8';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.borderColor = '#1e2540';
+      e.currentTarget.style.color = '#3d4460';
+    }
+  }, "\uD83D\uDCF7 ", /*#__PURE__*/React.createElement("strong", null, "Click"), " to upload \xB7 ", /*#__PURE__*/React.createElement("strong", null, "Ctrl+V"), " anywhere to paste screenshot"), /*#__PURE__*/React.createElement("input", {
+    ref: ref,
+    type: "file",
+    accept: "image/*",
+    onChange: e => handleFile(e.target.files[0]),
+    style: {
+      display: 'none'
+    }
+  }), url && /*#__PURE__*/React.createElement("button", {
+    onClick: () => ref.current.click(),
+    style: {
+      marginTop: 6,
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '5px 12px',
+      fontSize: 12
+    }
+  }, "Change Image"));
 }
 
 // ════════════════════════════════════════════════════════════════
 // EXPLANATION EDITOR — blocks of text + images, all images in IndexedDB
 // ════════════════════════════════════════════════════════════════
-function ExplanationBlock({ block, questionId, index, total, onUpdate, onRemove, onMoveUp, onMoveDown }) {
+function ExplanationBlock({
+  block,
+  questionId,
+  index,
+  total,
+  onUpdate,
+  onRemove,
+  onMoveUp,
+  onMoveDown
+}) {
   const url = useImage(block.type === 'image' ? block.imageKey : null);
-
   if (block.type === 'image') {
-    return (
-      <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
-        <div style={{flex:1}}>
-          {url
-            ? <img src={url} alt="exp" style={{width:'100%',borderRadius:6,maxHeight:240,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>
-            : <div style={{padding:12,textAlign:'center',color:'#374151',fontSize:11,border:'1px dashed #1e2540',borderRadius:6}}>Image loading...</div>
-          }
-        </div>
-        <BlockControls index={index} total={total} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onRemove={onRemove}/>
-      </div>
-    );
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 6,
+        alignItems: 'flex-start'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, url ? /*#__PURE__*/React.createElement("img", {
+      src: url,
+      alt: "exp",
+      style: {
+        width: '100%',
+        borderRadius: 6,
+        maxHeight: 240,
+        objectFit: 'contain',
+        background: '#060912',
+        border: '1px solid #1e2540'
+      }
+    }) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: 12,
+        textAlign: 'center',
+        color: '#374151',
+        fontSize: 11,
+        border: '1px dashed #1e2540',
+        borderRadius: 6
+      }
+    }, "Image loading...")), /*#__PURE__*/React.createElement(BlockControls, {
+      index: index,
+      total: total,
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
+      onRemove: onRemove
+    }));
   }
-
-  return (
-    <div style={{display:'flex',gap:6,alignItems:'flex-start'}}>
-      <textarea value={block.value||''} onChange={e=>onUpdate({...block,value:e.target.value})} placeholder="Write explanation..." rows={3}
-        style={{flex:1,resize:'vertical',fontSize:13,background:'#131929',border:'1px solid #1e2540',borderRadius:6,padding:'8px 10px',color:'#e2e8f0',fontFamily:'inherit'}}/>
-      <BlockControls index={index} total={total} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onRemove={onRemove}/>
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      alignItems: 'flex-start'
+    }
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: block.value || '',
+    onChange: e => onUpdate({
+      ...block,
+      value: e.target.value
+    }),
+    placeholder: "Write explanation...",
+    rows: 3,
+    style: {
+      flex: 1,
+      resize: 'vertical',
+      fontSize: 13,
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 6,
+      padding: '8px 10px',
+      color: '#e2e8f0',
+      fontFamily: 'inherit'
+    }
+  }), /*#__PURE__*/React.createElement(BlockControls, {
+    index: index,
+    total: total,
+    onMoveUp: onMoveUp,
+    onMoveDown: onMoveDown,
+    onRemove: onRemove
+  }));
 }
-
-function BlockControls({index,total,onMoveUp,onMoveDown,onRemove}){
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:3,flexShrink:0}}>
-      <button type="button" onClick={onMoveUp} disabled={index===0} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:index===0?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▲</button>
-      <button type="button" onClick={onMoveDown} disabled={index===total-1} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,color:index===total-1?'#2a3050':'#64748b',padding:'3px 6px',fontSize:10}}>▼</button>
-      <button type="button" onClick={onRemove} style={{background:'#1a0a0a',border:'1px solid #3f1515',borderRadius:5,color:'#ef4444',padding:'3px 6px',fontSize:10}}>✕</button>
-    </div>
-  )
+function BlockControls({
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onRemove
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onMoveUp,
+    disabled: index === 0,
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 5,
+      color: index === 0 ? '#2a3050' : '#64748b',
+      padding: '3px 6px',
+      fontSize: 10
+    }
+  }, "\u25B2"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onMoveDown,
+    disabled: index === total - 1,
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 5,
+      color: index === total - 1 ? '#2a3050' : '#64748b',
+      padding: '3px 6px',
+      fontSize: 10
+    }
+  }, "\u25BC"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onRemove,
+    style: {
+      background: '#1a0a0a',
+      border: '1px solid #3f1515',
+      borderRadius: 5,
+      color: '#ef4444',
+      padding: '3px 6px',
+      fontSize: 10
+    }
+  }, "\u2715"));
 }
-
-function ExplanationEditor({ blocks, onChange, questionId }) {
+function ExplanationEditor({
+  blocks,
+  onChange,
+  questionId
+}) {
   const fileRef = useRef();
-
   const addText = () => {
-    onChange([...blocks, { id: 'b' + Date.now(), type: 'text', value: '' }]);
+    onChange([...blocks, {
+      id: 'b' + Date.now(),
+      type: 'text',
+      value: ''
+    }]);
   };
-
-  const addImageFile = async (file) => {
+  const addImageFile = async file => {
     if (!file) return;
     const id = 'b' + Date.now();
     const key = expImgKey(questionId || 'new', id);
     const reader = new FileReader();
     reader.onload = async ev => {
       await ImgDB.save(key, ev.target.result);
-      onChange([...blocks, { id, type: 'image', imageKey: key }]);
+      onChange([...blocks, {
+        id,
+        type: 'image',
+        imageKey: key
+      }]);
     };
     reader.readAsDataURL(file);
     if (fileRef.current) fileRef.current.value = '';
@@ -393,816 +773,3137 @@ function ExplanationEditor({ blocks, onChange, questionId }) {
 
   // No paste here — use the Image button to upload
 
-  const update = (i, b) => { const a = [...blocks]; a[i] = b; onChange(a); };
-  const remove = async (i) => {
+  const update = (i, b) => {
+    const a = [...blocks];
+    a[i] = b;
+    onChange(a);
+  };
+  const remove = async i => {
     const b = blocks[i];
     if (b.type === 'image' && b.imageKey) await ImgDB.remove(b.imageKey);
-    onChange(blocks.filter((_,j)=>j!==i));
+    onChange(blocks.filter((_, j) => j !== i));
   };
-  const moveUp = (i) => { if(i===0)return; const a=[...blocks];[a[i-1],a[i]]=[a[i],a[i-1]];onChange(a); };
-  const moveDown = (i) => { if(i===blocks.length-1)return; const a=[...blocks];[a[i],a[i+1]]=[a[i+1],a[i]];onChange(a); };
-
-  return (
-    <div style={{border:'1px solid #252b42',borderRadius:8,overflow:'hidden'}}>
-      <div style={{background:'#131929',padding:'6px 10px',display:'flex',gap:6,alignItems:'center',borderBottom:'1px solid #1a1f35'}}>
-        <button type="button" onClick={addText} style={{background:'#1a1f35',border:'1px solid #252b42',borderRadius:6,color:'#94a3b8',padding:'4px 10px',fontSize:11,fontWeight:600}}>+ Text</button>
-        <button type="button" onClick={()=>fileRef.current.click()} style={{background:'#1a1f35',border:'1px solid #252b42',borderRadius:6,color:'#94a3b8',padding:'4px 10px',fontSize:11,fontWeight:600}}>🖼 Image</button>
-        <span style={{fontSize:10,color:'#374151',marginLeft:4}}>Use 🖼 Image button to add images</span>
-        <input ref={fileRef} type="file" accept="image/*" onChange={e=>addImageFile(e.target.files[0])} style={{display:'none'}}/>
-      </div>
-      <div style={{background:'#0f1422',padding:blocks.length?8:0,display:'flex',flexDirection:'column',gap:6}}>
-        {blocks.length===0&&<div style={{padding:20,textAlign:'center',color:'#374151',fontSize:12}}>
-          Click <strong style={{color:'#6366f1'}}>+ Text</strong> or <strong style={{color:'#6366f1'}}>🖼 Image</strong> to build your explanation
-        </div>}
-        {blocks.map((b,i)=>(
-          <ExplanationBlock key={b.id} block={b} questionId={questionId} index={i} total={blocks.length}
-            onUpdate={nb=>update(i,nb)} onRemove={()=>remove(i)} onMoveUp={()=>moveUp(i)} onMoveDown={()=>moveDown(i)}/>
-        ))}
-      </div>
-    </div>
-  );
+  const moveUp = i => {
+    if (i === 0) return;
+    const a = [...blocks];
+    [a[i - 1], a[i]] = [a[i], a[i - 1]];
+    onChange(a);
+  };
+  const moveDown = i => {
+    if (i === blocks.length - 1) return;
+    const a = [...blocks];
+    [a[i], a[i + 1]] = [a[i + 1], a[i]];
+    onChange(a);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: '1px solid #252b42',
+      borderRadius: 8,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#131929',
+      padding: '6px 10px',
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center',
+      borderBottom: '1px solid #1a1f35'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: addText,
+    style: {
+      background: '#1a1f35',
+      border: '1px solid #252b42',
+      borderRadius: 6,
+      color: '#94a3b8',
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "+ Text"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => fileRef.current.click(),
+    style: {
+      background: '#1a1f35',
+      border: '1px solid #252b42',
+      borderRadius: 6,
+      color: '#94a3b8',
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\uD83D\uDDBC Image"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#374151',
+      marginLeft: 4
+    }
+  }, "Use \uD83D\uDDBC Image button to add images"), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    onChange: e => addImageFile(e.target.files[0]),
+    style: {
+      display: 'none'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0f1422',
+      padding: blocks.length ? 8 : 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, blocks.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 20,
+      textAlign: 'center',
+      color: '#374151',
+      fontSize: 12
+    }
+  }, "Click ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#6366f1'
+    }
+  }, "+ Text"), " or ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#6366f1'
+    }
+  }, "\uD83D\uDDBC Image"), " to build your explanation"), blocks.map((b, i) => /*#__PURE__*/React.createElement(ExplanationBlock, {
+    key: b.id,
+    block: b,
+    questionId: questionId,
+    index: i,
+    total: blocks.length,
+    onUpdate: nb => update(i, nb),
+    onRemove: () => remove(i),
+    onMoveUp: () => moveUp(i),
+    onMoveDown: () => moveDown(i)
+  }))));
 }
 
 // ════════════════════════════════════════════════════════════════
 // MISTAKE FORM
 // ════════════════════════════════════════════════════════════════
-function MistakeForm({q,subjects,defaultSubject,defaultChapter,onSave,onClose}){
+function MistakeForm({
+  q,
+  subjects,
+  defaultSubject,
+  defaultChapter,
+  onSave,
+  onClose
+}) {
   const qId = useRef(q?.id || 'new_' + Date.now()).current;
   const initBlocks = () => {
     if (q?.explanationBlocks) return q.explanationBlocks;
-    if (q?.explanation) return [{id:'b0',type:'text',value:q.explanation}];
+    if (q?.explanation) return [{
+      id: 'b0',
+      type: 'text',
+      value: q.explanation
+    }];
     return [];
   };
-  const[form,setForm]=useState({
-    title:q?.title||'', subject:q?.subject||defaultSubject||'dm',
-    chapter:q?.chapter||defaultChapter||'', mistakeType:q?.mistakeType||'Concept Mistake',
-    difficulty:q?.difficulty||'Medium', tags:q?.tags||[], status:q?.status||'New',
-    notes:q?.notes||'', solutionLink:q?.solutionLink||'', imageKey:q?.imageKey||''
+  const [form, setForm] = useState({
+    title: q?.title || '',
+    subject: q?.subject || defaultSubject || 'dm',
+    chapter: q?.chapter || defaultChapter || '',
+    mistakeType: q?.mistakeType || 'Concept Mistake',
+    difficulty: q?.difficulty || 'Medium',
+    tags: q?.tags || [],
+    status: q?.status || 'New',
+    notes: q?.notes || '',
+    solutionLink: q?.solutionLink || '',
+    imageKey: q?.imageKey || ''
   });
-  const[expBlocks,setExpBlocks]=useState(initBlocks);
-  const sub=subjects.find(s=>s.id===form.subject)||subjects[0];
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-
-  const save=()=>{
-    if(!form.title.trim()){alert('Please enter a question title');return;}
-    const saved={...form,explanationBlocks:expBlocks,id:q?.id||qId,date:q?.date||new Date().toISOString().slice(0,10)};
+  const [expBlocks, setExpBlocks] = useState(initBlocks);
+  const sub = subjects.find(s => s.id === form.subject) || subjects[0];
+  const set = (k, v) => setForm(f => ({
+    ...f,
+    [k]: v
+  }));
+  const save = () => {
+    if (!form.title.trim()) {
+      alert('Please enter a question title');
+      return;
+    }
+    const saved = {
+      ...form,
+      explanationBlocks: expBlocks,
+      id: q?.id || qId,
+      date: q?.date || new Date().toISOString().slice(0, 10)
+    };
     onSave(saved);
     onClose();
   };
-
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:13,maxHeight:'72vh',overflowY:'auto',paddingRight:4}}>
-      <div><label>Question Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Brief description of the question"/></div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Subject</label><select value={form.subject} onChange={e=>{set('subject',e.target.value);set('chapter','')}}>
-          {subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-        </select></div>
-        <div><label>Chapter</label><select value={form.chapter} onChange={e=>set('chapter',e.target.value)}>
-          <option value="">-- Select --</option>
-          {sub.chapters.map(c=><option key={c} value={c}>{c}</option>)}
-        </select></div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-        <div><label>Mistake Type</label><select value={form.mistakeType} onChange={e=>set('mistakeType',e.target.value)}>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}</select></div>
-        <div><label>Difficulty</label><select value={form.difficulty} onChange={e=>set('difficulty',e.target.value)}>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}</select></div>
-        <div><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{MISTAKE_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
-      </div>
-      <div>
-        <label>Question Screenshot — stored permanently, never lost</label>
-        <ImageUploadField imageKey={form.imageKey} onSave={k=>set('imageKey',k)} onRemove={()=>set('imageKey','')}/>
-      </div>
-      <div>
-        <label>My Explanation / Solution Approach</label>
-        <ExplanationEditor blocks={expBlocks} onChange={setExpBlocks} questionId={qId}/>
-      </div>
-      <div><label>Solution Link</label><input value={form.solutionLink} onChange={e=>set('solutionLink',e.target.value)} placeholder="YouTube / website / drive link"/></div>
-      <div><label>Key Learning Note</label><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} rows={2} placeholder="What to remember next time?"/></div>
-      <div><label>Tags</label><TagInput tags={form.tags} onChange={v=>set('tags',v)} suggestions={COMMON_TAGS_MISTAKE}/></div>
-      <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:12,borderTop:'1px solid #1a1f35'}}>
-        <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Cancel</button>
-        <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save Question</button>
-      </div>
-    </div>
-  )
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 13,
+      maxHeight: '72vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Question Title *"), /*#__PURE__*/React.createElement("input", {
+    value: form.title,
+    onChange: e => set('title', e.target.value),
+    placeholder: "Brief description of the question"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Subject"), /*#__PURE__*/React.createElement("select", {
+    value: form.subject,
+    onChange: e => {
+      set('subject', e.target.value);
+      set('chapter', '');
+    }
+  }, subjects.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s.id,
+    value: s.id
+  }, s.name)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Chapter"), /*#__PURE__*/React.createElement("select", {
+    value: form.chapter,
+    onChange: e => set('chapter', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "-- Select --"), sub.chapters.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Mistake Type"), /*#__PURE__*/React.createElement("select", {
+    value: form.mistakeType,
+    onChange: e => set('mistakeType', e.target.value)
+  }, MISTAKE_TYPES.map(m => /*#__PURE__*/React.createElement("option", {
+    key: m
+  }, m)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Difficulty"), /*#__PURE__*/React.createElement("select", {
+    value: form.difficulty,
+    onChange: e => set('difficulty', e.target.value)
+  }, DIFFICULTIES.map(d => /*#__PURE__*/React.createElement("option", {
+    key: d
+  }, d)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Status"), /*#__PURE__*/React.createElement("select", {
+    value: form.status,
+    onChange: e => set('status', e.target.value)
+  }, MISTAKE_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Question Screenshot \u2014 stored permanently, never lost"), /*#__PURE__*/React.createElement(ImageUploadField, {
+    imageKey: form.imageKey,
+    onSave: k => set('imageKey', k),
+    onRemove: () => set('imageKey', '')
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "My Explanation / Solution Approach"), /*#__PURE__*/React.createElement(ExplanationEditor, {
+    blocks: expBlocks,
+    onChange: setExpBlocks,
+    questionId: qId
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Solution Link"), /*#__PURE__*/React.createElement("input", {
+    value: form.solutionLink,
+    onChange: e => set('solutionLink', e.target.value),
+    placeholder: "YouTube / website / drive link"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Key Learning Note"), /*#__PURE__*/React.createElement("textarea", {
+    value: form.notes,
+    onChange: e => set('notes', e.target.value),
+    rows: 2,
+    placeholder: "What to remember next time?"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Tags"), /*#__PURE__*/React.createElement(TagInput, {
+    tags: form.tags,
+    onChange: v => set('tags', v),
+    suggestions: COMMON_TAGS_MISTAKE
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      justifyContent: 'flex-end',
+      paddingTop: 12,
+      borderTop: '1px solid #1a1f35'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      color: '#64748b',
+      padding: '8px 16px',
+      fontSize: 13
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '8px 20px',
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "Save Question")));
 }
 
 // ════════════════════════════════════════════════════════════════
 // PYQ FORM
 // ════════════════════════════════════════════════════════════════
-function PYQForm({q,subjects,defaultSubject,defaultChapter,onSave,onClose}){
-  const[form,setForm]=useState({
-    qNum:q?.qNum||'', year:q?.year||'', subject:q?.subject||defaultSubject||'dm',
-    chapter:q?.chapter||defaultChapter||'', imageKey:q?.imageKey||'',
-    isImportant:q?.isImportant||false, isDoubt:q?.isDoubt||false,
-    status:q?.status||'Not Revised', solutionLocation:q?.solutionLocation||'Notebook',
-    pageRef:q?.pageRef||'', notes:q?.notes||'', tags:q?.tags||[]
+function PYQForm({
+  q,
+  subjects,
+  defaultSubject,
+  defaultChapter,
+  onSave,
+  onClose
+}) {
+  const [form, setForm] = useState({
+    qNum: q?.qNum || '',
+    year: q?.year || '',
+    subject: q?.subject || defaultSubject || 'dm',
+    chapter: q?.chapter || defaultChapter || '',
+    imageKey: q?.imageKey || '',
+    isImportant: q?.isImportant || false,
+    isDoubt: q?.isDoubt || false,
+    status: q?.status || 'Not Revised',
+    solutionLocation: q?.solutionLocation || 'Notebook',
+    pageRef: q?.pageRef || '',
+    notes: q?.notes || '',
+    tags: q?.tags || []
   });
-  const sub=subjects.find(s=>s.id===form.subject)||subjects[0];
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const tog=k=>setForm(f=>({...f,[k]:!f[k]}));
-  const save=()=>{
-    if(!form.qNum.trim()){alert('Please enter a question number');return;}
-    onSave({...form,id:q?.id||Date.now().toString(),date:q?.date||new Date().toISOString().slice(0,10)});
+  const sub = subjects.find(s => s.id === form.subject) || subjects[0];
+  const set = (k, v) => setForm(f => ({
+    ...f,
+    [k]: v
+  }));
+  const tog = k => setForm(f => ({
+    ...f,
+    [k]: !f[k]
+  }));
+  const save = () => {
+    if (!form.qNum.trim()) {
+      alert('Please enter a question number');
+      return;
+    }
+    onSave({
+      ...form,
+      id: q?.id || Date.now().toString(),
+      date: q?.date || new Date().toISOString().slice(0, 10)
+    });
     onClose();
   };
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:13,maxHeight:'72vh',overflowY:'auto',paddingRight:4}}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Question Number *</label><input value={form.qNum} onChange={e=>set('qNum',e.target.value)} placeholder="Q1, Q23, Q45..."/></div>
-        <div><label>Year / Exam</label><input value={form.year} onChange={e=>set('year',e.target.value)} placeholder="GATE 2023, GO Book Set 1..."/></div>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div><label>Subject</label><select value={form.subject} onChange={e=>{set('subject',e.target.value);set('chapter','')}}>
-          {subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-        </select></div>
-        <div><label>Chapter</label><select value={form.chapter} onChange={e=>set('chapter',e.target.value)}>
-          <option value="">-- Select --</option>
-          {sub.chapters.map(c=><option key={c} value={c}>{c}</option>)}
-        </select></div>
-      </div>
-      <div style={{display:'flex',gap:10}}>
-        <button onClick={()=>tog('isImportant')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${form.isImportant?'#f59e0b':'#1e2540'}`,background:form.isImportant?'#f59e0b22':'#131929',color:form.isImportant?'#f59e0b':'#64748b',fontSize:12,fontWeight:600}}>
-          ⭐ {form.isImportant?'Important ✓':'Mark Important'}
-        </button>
-        <button onClick={()=>tog('isDoubt')} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${form.isDoubt?'#ef4444':'#1e2540'}`,background:form.isDoubt?'#ef444422':'#131929',color:form.isDoubt?'#ef4444':'#64748b',fontSize:12,fontWeight:600}}>
-          ❓ {form.isDoubt?'Doubt ✓':'Mark as Doubt'}
-        </button>
-      </div>
-      <div>
-        <label>Screenshot — stored permanently</label>
-        <ImageUploadField imageKey={form.imageKey} onSave={k=>set('imageKey',k)} onRemove={()=>set('imageKey','')}/>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-        <div><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{PYQ_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
-        <div><label>Solution Location</label><select value={form.solutionLocation} onChange={e=>set('solutionLocation',e.target.value)}>{SOLUTION_LOCATIONS.map(s=><option key={s}>{s}</option>)}</select></div>
-        <div><label>Page / Notebook Ref</label><input value={form.pageRef} onChange={e=>set('pageRef',e.target.value)} placeholder="Notebook 1, Page 23"/></div>
-      </div>
-      <div><label>Discussion Notes</label><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} rows={3} placeholder="Key concept, doubt, or discussion point..."/></div>
-      <div><label>Tags</label><TagInput tags={form.tags} onChange={v=>set('tags',v)} suggestions={COMMON_TAGS_PYQ}/></div>
-      <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:12,borderTop:'1px solid #1a1f35'}}>
-        <button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Cancel</button>
-        <button onClick={save} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'8px 20px',fontSize:13,fontWeight:700}}>Save PYQ</button>
-      </div>
-    </div>
-  )
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 13,
+      maxHeight: '72vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Question Number *"), /*#__PURE__*/React.createElement("input", {
+    value: form.qNum,
+    onChange: e => set('qNum', e.target.value),
+    placeholder: "Q1, Q23, Q45..."
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Year / Exam"), /*#__PURE__*/React.createElement("input", {
+    value: form.year,
+    onChange: e => set('year', e.target.value),
+    placeholder: "GATE 2023, GO Book Set 1..."
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Subject"), /*#__PURE__*/React.createElement("select", {
+    value: form.subject,
+    onChange: e => {
+      set('subject', e.target.value);
+      set('chapter', '');
+    }
+  }, subjects.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s.id,
+    value: s.id
+  }, s.name)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Chapter"), /*#__PURE__*/React.createElement("select", {
+    value: form.chapter,
+    onChange: e => set('chapter', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "-- Select --"), sub.chapters.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => tog('isImportant'),
+    style: {
+      flex: 1,
+      padding: '9px',
+      borderRadius: 8,
+      border: `1px solid ${form.isImportant ? '#f59e0b' : '#1e2540'}`,
+      background: form.isImportant ? '#f59e0b22' : '#131929',
+      color: form.isImportant ? '#f59e0b' : '#64748b',
+      fontSize: 12,
+      fontWeight: 600
+    }
+  }, "\u2B50 ", form.isImportant ? 'Important ✓' : 'Mark Important'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => tog('isDoubt'),
+    style: {
+      flex: 1,
+      padding: '9px',
+      borderRadius: 8,
+      border: `1px solid ${form.isDoubt ? '#ef4444' : '#1e2540'}`,
+      background: form.isDoubt ? '#ef444422' : '#131929',
+      color: form.isDoubt ? '#ef4444' : '#64748b',
+      fontSize: 12,
+      fontWeight: 600
+    }
+  }, "\u2753 ", form.isDoubt ? 'Doubt ✓' : 'Mark as Doubt')), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Screenshot \u2014 stored permanently"), /*#__PURE__*/React.createElement(ImageUploadField, {
+    imageKey: form.imageKey,
+    onSave: k => set('imageKey', k),
+    onRemove: () => set('imageKey', '')
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Status"), /*#__PURE__*/React.createElement("select", {
+    value: form.status,
+    onChange: e => set('status', e.target.value)
+  }, PYQ_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Solution Location"), /*#__PURE__*/React.createElement("select", {
+    value: form.solutionLocation,
+    onChange: e => set('solutionLocation', e.target.value)
+  }, SOLUTION_LOCATIONS.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Page / Notebook Ref"), /*#__PURE__*/React.createElement("input", {
+    value: form.pageRef,
+    onChange: e => set('pageRef', e.target.value),
+    placeholder: "Notebook 1, Page 23"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Discussion Notes"), /*#__PURE__*/React.createElement("textarea", {
+    value: form.notes,
+    onChange: e => set('notes', e.target.value),
+    rows: 3,
+    placeholder: "Key concept, doubt, or discussion point..."
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", null, "Tags"), /*#__PURE__*/React.createElement(TagInput, {
+    tags: form.tags,
+    onChange: v => set('tags', v),
+    suggestions: COMMON_TAGS_PYQ
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      justifyContent: 'flex-end',
+      paddingTop: 12,
+      borderTop: '1px solid #1a1f35'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      color: '#64748b',
+      padding: '8px 16px',
+      fontSize: 13
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: save,
+    style: {
+      background: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '8px 20px',
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "Save PYQ")));
 }
 
 // ════════════════════════════════════════════════════════════════
 // DETAIL VIEWS
 // ════════════════════════════════════════════════════════════════
-function MistakeDetail({q,subjects,onClose,onEdit,onDelete}){
-  const sub=subjects.find(s=>s.id===q.subject);
-  const mainImg=useImage(q.imageKey);
-  const dc={Easy:'#22c55e',Medium:'#f59e0b',Hard:'#ef4444'};
-  return(
-    <div style={{maxHeight:'75vh',overflowY:'auto',paddingRight:4}}>
-      <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
-        <StatusBadge status={q.status}/>
-        <span style={{background:dc[q.difficulty]+'22',color:dc[q.difficulty],fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>{q.difficulty}</span>
-        <span style={{background:'#3b82f622',color:'#60a5fa',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>{q.mistakeType}</span>
-        <span style={{fontSize:10,color:'#475569',marginLeft:'auto',alignSelf:'center'}}>{q.date}</span>
-      </div>
-      {mainImg&&<img src={mainImg} alt="q" style={{width:'100%',borderRadius:8,marginBottom:14,maxHeight:300,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>}
-      <div style={{background:'#131929',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:13}}>
-        <span style={{color:'#475569'}}>Subject: </span><span style={{color:sub?.color,fontWeight:600}}>{sub?.name}</span>
-        {q.chapter&&<><span style={{color:'#475569'}}> › </span><span style={{color:'#94a3b8'}}>{q.chapter}</span></>}
-      </div>
-      {(q.explanationBlocks?.length>0||q.explanation)&&<div style={{background:'#0d1422',border:'1px solid #1e2540',borderRadius:8,padding:14,marginBottom:12}}>
-        <p style={{fontSize:10,color:'#475569',marginBottom:10,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>My Explanation</p>
-        {q.explanationBlocks?.length>0
-          ? q.explanationBlocks.map(b=>
-              b.type==='image'
-                ? <ExpImageBlock key={b.id} imageKey={b.imageKey}/>
-                : <p key={b.id} style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:6}}>{b.value}</p>
-            )
-          : <p style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7,whiteSpace:'pre-wrap'}}>{q.explanation}</p>
-        }
-      </div>}
-      {q.solutionLink&&<div style={{marginBottom:12}}>
-        <p style={{fontSize:10,color:'#475569',marginBottom:5,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Solution Link</p>
-        <a href={q.solutionLink} target="_blank" rel="noreferrer" style={{color:'#818cf8',fontSize:13,wordBreak:'break-all'}}>{q.solutionLink}</a>
-      </div>}
-      {q.notes&&<div style={{background:'#0d1422',borderLeft:'3px solid #6366f1',borderRadius:'0 8px 8px 0',padding:12,marginBottom:12}}>
-        <p style={{fontSize:10,color:'#475569',marginBottom:5,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Key Note</p>
-        <p style={{fontSize:13,color:'#cbd5e1',lineHeight:1.6}}>{q.notes}</p>
-      </div>}
-      {q.tags?.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:14}}>
-        {q.tags.map(t=><span key={t} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:5,padding:'2px 7px',fontSize:11,color:'#64748b'}}>{t}</span>)}
-      </div>}
-      <div style={{display:'flex',gap:8,justifyContent:'flex-end',borderTop:'1px solid #131929',paddingTop:14}}>
-        <button onClick={()=>{if(window.confirm('Delete?'))onDelete(q.id)}} style={{background:'#ef444415',border:'1px solid #ef444440',borderRadius:7,color:'#ef4444',padding:'7px 14px',fontSize:12}}>Delete</button>
-        <button onClick={()=>onEdit(q)} style={{background:'#6366f115',border:'1px solid #6366f140',borderRadius:7,color:'#818cf8',padding:'7px 14px',fontSize:12}}>Edit</button>
-        <button onClick={onClose} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:7,color:'#fff',padding:'7px 16px',fontSize:12,fontWeight:700}}>Close</button>
-      </div>
-    </div>
-  )
+function MistakeDetail({
+  q,
+  subjects,
+  onClose,
+  onEdit,
+  onDelete
+}) {
+  const sub = subjects.find(s => s.id === q.subject);
+  const mainImg = useImage(q.imageKey);
+  const dc = {
+    Easy: '#22c55e',
+    Medium: '#f59e0b',
+    Hard: '#ef4444'
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: '75vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement(StatusBadge, {
+    status: q.status
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: dc[q.difficulty] + '22',
+      color: dc[q.difficulty],
+      fontSize: 10,
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: 6
+    }
+  }, q.difficulty), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#3b82f622',
+      color: '#60a5fa',
+      fontSize: 10,
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: 6
+    }
+  }, q.mistakeType), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginLeft: 'auto',
+      alignSelf: 'center'
+    }
+  }, q.date)), mainImg && /*#__PURE__*/React.createElement("img", {
+    src: mainImg,
+    alt: "q",
+    style: {
+      width: '100%',
+      borderRadius: 8,
+      marginBottom: 14,
+      maxHeight: 300,
+      objectFit: 'contain',
+      background: '#060912',
+      border: '1px solid #1e2540'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#131929',
+      borderRadius: 8,
+      padding: '10px 14px',
+      marginBottom: 12,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#475569'
+    }
+  }, "Subject: "), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: sub?.color,
+      fontWeight: 600
+    }
+  }, sub?.name), q.chapter && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#475569'
+    }
+  }, " \u203A "), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#94a3b8'
+    }
+  }, q.chapter))), (q.explanationBlocks?.length > 0 || q.explanation) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0d1422',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      padding: 14,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 10,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "My Explanation"), q.explanationBlocks?.length > 0 ? q.explanationBlocks.map(b => b.type === 'image' ? /*#__PURE__*/React.createElement(ExpImageBlock, {
+    key: b.id,
+    imageKey: b.imageKey
+  }) : /*#__PURE__*/React.createElement("p", {
+    key: b.id,
+    style: {
+      fontSize: 13,
+      color: '#cbd5e1',
+      lineHeight: 1.7,
+      whiteSpace: 'pre-wrap',
+      marginBottom: 6
+    }
+  }, b.value)) : /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#cbd5e1',
+      lineHeight: 1.7,
+      whiteSpace: 'pre-wrap'
+    }
+  }, q.explanation)), q.solutionLink && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 5,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Solution Link"), /*#__PURE__*/React.createElement("a", {
+    href: q.solutionLink,
+    target: "_blank",
+    rel: "noreferrer",
+    style: {
+      color: '#818cf8',
+      fontSize: 13,
+      wordBreak: 'break-all'
+    }
+  }, q.solutionLink)), q.notes && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0d1422',
+      borderLeft: '3px solid #6366f1',
+      borderRadius: '0 8px 8px 0',
+      padding: 12,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 5,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Key Note"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#cbd5e1',
+      lineHeight: 1.6
+    }
+  }, q.notes)), q.tags?.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginBottom: 14
+    }
+  }, q.tags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 5,
+      padding: '2px 7px',
+      fontSize: 11,
+      color: '#64748b'
+    }
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      justifyContent: 'flex-end',
+      borderTop: '1px solid #131929',
+      paddingTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (window.confirm('Delete?')) onDelete(q.id);
+    },
+    style: {
+      background: '#ef444415',
+      border: '1px solid #ef444440',
+      borderRadius: 7,
+      color: '#ef4444',
+      padding: '7px 14px',
+      fontSize: 12
+    }
+  }, "Delete"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onEdit(q),
+    style: {
+      background: '#6366f115',
+      border: '1px solid #6366f140',
+      borderRadius: 7,
+      color: '#818cf8',
+      padding: '7px 14px',
+      fontSize: 12
+    }
+  }, "Edit"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 7,
+      color: '#fff',
+      padding: '7px 16px',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "Close")));
 }
-
-function ExpImageBlock({imageKey}){
-  const url=useImage(imageKey);
-  return url?<img src={url} alt="exp" style={{width:'100%',borderRadius:6,marginBottom:8,maxHeight:280,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>:null;
+function ExpImageBlock({
+  imageKey
+}) {
+  const url = useImage(imageKey);
+  return url ? /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: "exp",
+    style: {
+      width: '100%',
+      borderRadius: 6,
+      marginBottom: 8,
+      maxHeight: 280,
+      objectFit: 'contain',
+      background: '#060912',
+      border: '1px solid #1e2540'
+    }
+  }) : null;
 }
-
-function PYQDetail({q,subjects,onClose,onEdit,onDelete}){
-  const sub=subjects.find(s=>s.id===q.subject);
-  const mainImg=useImage(q.imageKey);
-  return(
-    <div style={{maxHeight:'75vh',overflowY:'auto',paddingRight:4}}>
-      <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
-        <StatusBadge status={q.status}/>
-        {q.isImportant&&<span style={{background:'#f59e0b22',color:'#f59e0b',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>⭐ Important</span>}
-        {q.isDoubt&&<span style={{background:'#ef444422',color:'#ef4444',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6}}>❓ Doubt</span>}
-        <span style={{fontSize:10,color:'#475569',marginLeft:'auto',alignSelf:'center'}}>{q.date}</span>
-      </div>
-      {q.year&&<div style={{background:'#0a1628',border:'1px solid #06b6d433',borderRadius:8,padding:'8px 14px',marginBottom:12}}>
-        <span style={{fontSize:10,color:'#475569'}}>Exam: </span><span style={{fontSize:13,color:'#22d3ee',fontWeight:600}}>{q.year}</span>
-      </div>}
-      {mainImg&&<img src={mainImg} alt="pyq" style={{width:'100%',borderRadius:8,marginBottom:14,maxHeight:300,objectFit:'contain',background:'#060912',border:'1px solid #1e2540'}}/>}
-      <div style={{background:'#131929',borderRadius:8,padding:'10px 14px',marginBottom:12,fontSize:13}}>
-        <span style={{color:'#475569'}}>Subject: </span><span style={{color:sub?.color,fontWeight:600}}>{sub?.name}</span>
-        {q.chapter&&<><span style={{color:'#475569'}}> › </span><span style={{color:'#94a3b8'}}>{q.chapter}</span></>}
-      </div>
-      {(q.solutionLocation||q.pageRef)&&<div style={{background:'#0d1422',border:'1px solid #1e2540',borderRadius:8,padding:12,marginBottom:12,display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        {q.solutionLocation&&<div><p style={{fontSize:10,color:'#475569',marginBottom:4,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Solution Location</p><p style={{fontSize:13,color:'#94a3b8'}}>{q.solutionLocation}</p></div>}
-        {q.pageRef&&<div><p style={{fontSize:10,color:'#475569',marginBottom:4,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Reference</p><p style={{fontSize:13,color:'#94a3b8'}}>{q.pageRef}</p></div>}
-      </div>}
-      {q.notes&&<div style={{background:'#0d1422',borderLeft:'3px solid #06b6d4',borderRadius:'0 8px 8px 0',padding:12,marginBottom:12}}>
-        <p style={{fontSize:10,color:'#475569',marginBottom:5,fontWeight:700,textTransform:'uppercase',letterSpacing:.5}}>Notes</p>
-        <p style={{fontSize:13,color:'#cbd5e1',lineHeight:1.6}}>{q.notes}</p>
-      </div>}
-      {q.tags?.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:14}}>
-        {q.tags.map(t=><span key={t} style={{background:'#0a1628',border:'1px solid #06b6d433',borderRadius:5,padding:'2px 7px',fontSize:11,color:'#22d3ee'}}>{t}</span>)}
-      </div>}
-      <div style={{display:'flex',gap:8,justifyContent:'flex-end',borderTop:'1px solid #131929',paddingTop:14}}>
-        <button onClick={()=>{if(window.confirm('Delete?'))onDelete(q.id)}} style={{background:'#ef444415',border:'1px solid #ef444440',borderRadius:7,color:'#ef4444',padding:'7px 14px',fontSize:12}}>Delete</button>
-        <button onClick={()=>onEdit(q)} style={{background:'#06b6d415',border:'1px solid #06b6d440',borderRadius:7,color:'#22d3ee',padding:'7px 14px',fontSize:12}}>Edit</button>
-        <button onClick={onClose} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:7,color:'#fff',padding:'7px 16px',fontSize:12,fontWeight:700}}>Close</button>
-      </div>
-    </div>
-  )
+function PYQDetail({
+  q,
+  subjects,
+  onClose,
+  onEdit,
+  onDelete
+}) {
+  const sub = subjects.find(s => s.id === q.subject);
+  const mainImg = useImage(q.imageKey);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: '75vh',
+      overflowY: 'auto',
+      paddingRight: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement(StatusBadge, {
+    status: q.status
+  }), q.isImportant && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#f59e0b22',
+      color: '#f59e0b',
+      fontSize: 10,
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: 6
+    }
+  }, "\u2B50 Important"), q.isDoubt && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#ef444422',
+      color: '#ef4444',
+      fontSize: 10,
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: 6
+    }
+  }, "\u2753 Doubt"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginLeft: 'auto',
+      alignSelf: 'center'
+    }
+  }, q.date)), q.year && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0a1628',
+      border: '1px solid #06b6d433',
+      borderRadius: 8,
+      padding: '8px 14px',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569'
+    }
+  }, "Exam: "), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: '#22d3ee',
+      fontWeight: 600
+    }
+  }, q.year)), mainImg && /*#__PURE__*/React.createElement("img", {
+    src: mainImg,
+    alt: "pyq",
+    style: {
+      width: '100%',
+      borderRadius: 8,
+      marginBottom: 14,
+      maxHeight: 300,
+      objectFit: 'contain',
+      background: '#060912',
+      border: '1px solid #1e2540'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#131929',
+      borderRadius: 8,
+      padding: '10px 14px',
+      marginBottom: 12,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#475569'
+    }
+  }, "Subject: "), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: sub?.color,
+      fontWeight: 600
+    }
+  }, sub?.name), q.chapter && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#475569'
+    }
+  }, " \u203A "), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#94a3b8'
+    }
+  }, q.chapter))), (q.solutionLocation || q.pageRef) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0d1422',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, q.solutionLocation && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 4,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Solution Location"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#94a3b8'
+    }
+  }, q.solutionLocation)), q.pageRef && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 4,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Reference"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#94a3b8'
+    }
+  }, q.pageRef))), q.notes && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0d1422',
+      borderLeft: '3px solid #06b6d4',
+      borderRadius: '0 8px 8px 0',
+      padding: 12,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 5,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Notes"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#cbd5e1',
+      lineHeight: 1.6
+    }
+  }, q.notes)), q.tags?.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 5,
+      marginBottom: 14
+    }
+  }, q.tags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      background: '#0a1628',
+      border: '1px solid #06b6d433',
+      borderRadius: 5,
+      padding: '2px 7px',
+      fontSize: 11,
+      color: '#22d3ee'
+    }
+  }, t))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      justifyContent: 'flex-end',
+      borderTop: '1px solid #131929',
+      paddingTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (window.confirm('Delete?')) onDelete(q.id);
+    },
+    style: {
+      background: '#ef444415',
+      border: '1px solid #ef444440',
+      borderRadius: 7,
+      color: '#ef4444',
+      padding: '7px 14px',
+      fontSize: 12
+    }
+  }, "Delete"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onEdit(q),
+    style: {
+      background: '#06b6d415',
+      border: '1px solid #06b6d440',
+      borderRadius: 7,
+      color: '#22d3ee',
+      padding: '7px 14px',
+      fontSize: 12
+    }
+  }, "Edit"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
+      border: 'none',
+      borderRadius: 7,
+      color: '#fff',
+      padding: '7px 16px',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "Close")));
 }
 
 // ════════════════════════════════════════════════════════════════
 // CARDS
 // ════════════════════════════════════════════════════════════════
-function MistakeCard({q,subjects,onClick}){
-  const sub=subjects.find(s=>s.id===q.subject);
-  const dc={Easy:'#22c55e',Medium:'#f59e0b',Hard:'#ef4444'};
-  const hasImg=!!(q.imageKey||(q.explanationBlocks||[]).some(b=>b.type==='image'&&b.imageKey));
-  return(
-    <div onClick={onClick} style={{background:'#0d1120',border:'1px solid #1a1f35',borderRadius:10,padding:14,cursor:'pointer',borderLeft:`3px solid ${sub?.color||'#6366f1'}`,transition:'transform .15s,border-color .15s'}}
-      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.borderColor=sub?.color||'#6366f1'}}
-      onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#1a1f35'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:8}}>
-        <p style={{fontSize:13,fontWeight:600,color:'#e2e8f0',lineHeight:1.4,flex:1}}>{q.title}{hasImg&&<span style={{fontSize:10,color:'#475569',marginLeft:6}}>📷</span>}</p>
-        <StatusBadge status={q.status}/>
-      </div>
-      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-        <span style={{fontSize:10,color:sub?.color,background:(sub?.color||'#818cf8')+'15',padding:'1px 6px',borderRadius:4}}>{sub?.name}</span>
-        {q.chapter&&<span style={{fontSize:10,color:'#64748b',background:'#131929',padding:'1px 6px',borderRadius:4}}>{q.chapter}</span>}
-        <span style={{fontSize:10,color:dc[q.difficulty],background:dc[q.difficulty]+'22',padding:'1px 6px',borderRadius:4}}>{q.difficulty}</span>
-        <span style={{fontSize:10,color:'#60a5fa',background:'#3b82f622',padding:'1px 6px',borderRadius:4}}>{q.mistakeType}</span>
-      </div>
-      <div style={{display:'flex',justifyContent:'space-between'}}>
-        <div style={{display:'flex',gap:4}}>{q.tags?.slice(0,3).map(t=><span key={t} style={{fontSize:10,color:'#374151'}}>{t}</span>)}</div>
-        <span style={{fontSize:10,color:'#374151'}}>{q.date}</span>
-      </div>
-    </div>
-  )
+function MistakeCard({
+  q,
+  subjects,
+  onClick
+}) {
+  const sub = subjects.find(s => s.id === q.subject);
+  const dc = {
+    Easy: '#22c55e',
+    Medium: '#f59e0b',
+    Hard: '#ef4444'
+  };
+  const hasImg = !!(q.imageKey || (q.explanationBlocks || []).some(b => b.type === 'image' && b.imageKey));
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClick,
+    style: {
+      background: '#0d1120',
+      border: '1px solid #1a1f35',
+      borderRadius: 10,
+      padding: 14,
+      cursor: 'pointer',
+      borderLeft: `3px solid ${sub?.color || '#6366f1'}`,
+      transition: 'transform .15s,border-color .15s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.borderColor = sub?.color || '#6366f1';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.borderColor = '#1a1f35';
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      color: '#e2e8f0',
+      lineHeight: 1.4,
+      flex: 1
+    }
+  }, q.title, hasImg && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginLeft: 6
+    }
+  }, "\uD83D\uDCF7")), /*#__PURE__*/React.createElement(StatusBadge, {
+    status: q.status
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: sub?.color,
+      background: (sub?.color || '#818cf8') + '15',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, sub?.name), q.chapter && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#64748b',
+      background: '#131929',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.chapter), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: dc[q.difficulty],
+      background: dc[q.difficulty] + '22',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.difficulty), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#60a5fa',
+      background: '#3b82f622',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.mistakeType)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4
+    }
+  }, q.tags?.slice(0, 3).map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      fontSize: 10,
+      color: '#374151'
+    }
+  }, t))), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#374151'
+    }
+  }, q.date)));
 }
-
-function PYQCard({q,subjects,onClick}){
-  return(
-    <div onClick={onClick} style={{background:'#0a1628',border:'1px solid #0e2040',borderRadius:10,padding:14,cursor:'pointer',borderLeft:'3px solid #06b6d4',transition:'transform .15s,border-color .15s'}}
-      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.borderColor='#22d3ee'}}
-      onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#0e2040'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:14,fontWeight:800,color:'#22d3ee'}}>{q.qNum}</span>
-          {q.year&&<span style={{fontSize:10,color:'#0ea5e9',background:'#0ea5e922',padding:'1px 6px',borderRadius:4,fontWeight:600}}>{q.year}</span>}
-        </div>
-        <div style={{display:'flex',gap:4,alignItems:'center'}}>
-          {q.isImportant&&<span style={{fontSize:12}}>⭐</span>}
-          {q.isDoubt&&<span style={{fontSize:12}}>❓</span>}
-          <StatusBadge status={q.status}/>
-        </div>
-      </div>
-      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-        {q.chapter&&<span style={{fontSize:10,color:'#64748b',background:'#131929',padding:'1px 6px',borderRadius:4}}>{q.chapter}</span>}
-        {q.solutionLocation&&<span style={{fontSize:10,color:'#475569',background:'#131929',padding:'1px 6px',borderRadius:4}}>{q.solutionLocation}</span>}
-        {q.pageRef&&<span style={{fontSize:10,color:'#22d3ee',background:'#06b6d415',padding:'1px 6px',borderRadius:4}}>{q.pageRef}</span>}
-      </div>
-      <div style={{display:'flex',justifyContent:'space-between'}}>
-        <div style={{display:'flex',gap:4}}>{q.tags?.slice(0,3).map(t=><span key={t} style={{fontSize:10,color:'#0e4060'}}>{t}</span>)}</div>
-        <span style={{fontSize:10,color:'#374151'}}>{q.date}</span>
-      </div>
-    </div>
-  )
+function PYQCard({
+  q,
+  subjects,
+  onClick
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClick,
+    style: {
+      background: '#0a1628',
+      border: '1px solid #0e2040',
+      borderRadius: 10,
+      padding: 14,
+      cursor: 'pointer',
+      borderLeft: '3px solid #06b6d4',
+      transition: 'transform .15s,border-color .15s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.borderColor = '#22d3ee';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.borderColor = '#0e2040';
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 800,
+      color: '#22d3ee'
+    }
+  }, q.qNum), q.year && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#0ea5e9',
+      background: '#0ea5e922',
+      padding: '1px 6px',
+      borderRadius: 4,
+      fontWeight: 600
+    }
+  }, q.year)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4,
+      alignItems: 'center'
+    }
+  }, q.isImportant && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12
+    }
+  }, "\u2B50"), q.isDoubt && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12
+    }
+  }, "\u2753"), /*#__PURE__*/React.createElement(StatusBadge, {
+    status: q.status
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4,
+      marginBottom: 8
+    }
+  }, q.chapter && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#64748b',
+      background: '#131929',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.chapter), q.solutionLocation && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      background: '#131929',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.solutionLocation), q.pageRef && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#22d3ee',
+      background: '#06b6d415',
+      padding: '1px 6px',
+      borderRadius: 4
+    }
+  }, q.pageRef)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4
+    }
+  }, q.tags?.slice(0, 3).map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      fontSize: 10,
+      color: '#0e4060'
+    }
+  }, t))), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#374151'
+    }
+  }, q.date)));
 }
 
 // ════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════
-function Dashboard({mistakes,pyqs,subjects,onBackup}){
-  const totalM=mistakes.length,totalP=pyqs.length;
-  const impP=pyqs.filter(q=>q.isImportant).length;
-  const discP=pyqs.filter(q=>q.status==='Need Discussion').length;
-  const needRevM=mistakes.filter(q=>q.status==='Need Revision'||q.tags?.includes('#revise'));
-  const weakest=subjects.map(s=>({s,cnt:mistakes.filter(q=>q.subject===s.id).length})).sort((a,b)=>b.cnt-a.cnt)[0];
-  const maxM=Math.max(1,...subjects.map(s=>mistakes.filter(q=>q.subject===s.id).length));
-  const maxP=Math.max(1,...subjects.map(s=>pyqs.filter(q=>q.subject===s.id).length));
-  return(
-    <div style={{paddingBottom:20}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24,flexWrap:'wrap',gap:12}}>
-        <div>
-          <h2 style={{fontSize:20,fontWeight:800,color:'#e2e8f0',letterSpacing:-.5}}>Dashboard</h2>
-          <p style={{fontSize:13,color:'#475569',marginTop:2}}>Your GATE prep overview</p>
-        </div>
-        <button onClick={onBackup} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontSize:12,fontWeight:700}}>💾 Backup / Restore</button>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10,marginBottom:28}}>
-        {[['Test Mistakes','#6366f1',totalM],['PYQs Saved','#06b6d4',totalP],['Important PYQs','#f59e0b',impP],['Need Discussion','#ef4444',discP],['Need Revision','#ef4444',needRevM.length],['Mastered','#22c55e',mistakes.filter(q=>q.status==='Mastered').length]].map(([l,c,v])=>(
-          <div key={l} style={{background:'#0d1120',border:'1px solid #1a1f35',borderRadius:10,padding:'14px 12px',textAlign:'center'}}>
-            <p style={{fontSize:10,color:'#475569',marginBottom:6,fontWeight:600,textTransform:'uppercase',letterSpacing:.5}}>{l}</p>
-            <p style={{fontSize:26,fontWeight:800,color:c}}>{v}</p>
-          </div>
-        ))}
-      </div>
-      {weakest?.cnt>0&&<div style={{background:'#1a0a0a',border:'1px solid #3f1515',borderRadius:10,padding:'12px 16px',marginBottom:20,display:'flex',alignItems:'center',gap:12}}>
-        <span style={{fontSize:20}}>⚠️</span>
-        <div><p style={{fontSize:11,color:'#ef4444',fontWeight:700,marginBottom:2}}>WEAKEST SUBJECT</p><p style={{fontSize:13,color:'#fca5a5'}}>{weakest.s.name} — {weakest.cnt} mistakes</p></div>
-      </div>}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:24}}>
-        <div>
-          <h3 style={{fontSize:11,fontWeight:700,color:'#475569',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>Mistakes by Subject</h3>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {subjects.map(s=>{const c=mistakes.filter(q=>q.subject===s.id).length;return(
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:11,color:'#64748b',width:100,flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
-                <div style={{flex:1,background:'#131929',borderRadius:3,height:6,overflow:'hidden'}}>
-                  <div style={{width:c?`${(c/maxM)*100}%`:'0',background:s.color,height:'100%',borderRadius:3,transition:'width .6s'}}/>
-                </div>
-                <span style={{fontSize:11,color:c?s.color:'#374151',minWidth:20,textAlign:'right',fontWeight:700}}>{c}</span>
-              </div>
-            )})}
-          </div>
-        </div>
-        <div>
-          <h3 style={{fontSize:11,fontWeight:700,color:'#475569',marginBottom:12,textTransform:'uppercase',letterSpacing:.5}}>PYQs by Subject</h3>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {subjects.map(s=>{const c=pyqs.filter(q=>q.subject===s.id).length;return(
-              <div key={s.id} style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:11,color:'#64748b',width:100,flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
-                <div style={{flex:1,background:'#131929',borderRadius:3,height:6,overflow:'hidden'}}>
-                  <div style={{width:c?`${(c/maxP)*100}%`:'0',background:'#06b6d4',height:'100%',borderRadius:3,transition:'width .6s'}}/>
-                </div>
-                <span style={{fontSize:11,color:c?'#06b6d4':'#374151',minWidth:20,textAlign:'right',fontWeight:700}}>{c}</span>
-              </div>
-            )})}
-          </div>
-        </div>
-      </div>
-      {needRevM.length>0&&<div>
-        <h3 style={{fontSize:11,fontWeight:700,color:'#ef4444',marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>Flagged for Revision ({needRevM.length})</h3>
-        <div style={{display:'flex',flexDirection:'column',gap:5}}>
-          {needRevM.slice(0,5).map(q=><div key={q.id} style={{background:'#0d1120',border:'1px solid #ef444420',borderRadius:7,padding:'8px 12px',display:'flex',justifyContent:'space-between',gap:10}}>
-            <span style={{fontSize:12,color:'#cbd5e1',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.title}</span>
-            <span style={{fontSize:10,color:'#475569',flexShrink:0}}>{subjects.find(s=>s.id===q.subject)?.name}</span>
-          </div>)}
-          {needRevM.length>5&&<p style={{fontSize:11,color:'#475569',textAlign:'center',padding:'6px 0'}}>+{needRevM.length-5} more</p>}
-        </div>
-      </div>}
-      {totalM===0&&totalP===0&&<div style={{textAlign:'center',padding:'40px 20px',background:'#0d1120',borderRadius:12,border:'1px dashed #1e2540',marginTop:20}}>
-        <p style={{fontSize:32,marginBottom:10}}>🎯</p>
-        <p style={{fontSize:14,color:'#475569'}}>Click a subject → add your first mistake or PYQ!</p>
-      </div>}
-    </div>
-  )
+function Dashboard({
+  mistakes,
+  pyqs,
+  subjects,
+  onBackup
+}) {
+  const totalM = mistakes.length,
+    totalP = pyqs.length;
+  const impP = pyqs.filter(q => q.isImportant).length;
+  const discP = pyqs.filter(q => q.status === 'Need Discussion').length;
+  const needRevM = mistakes.filter(q => q.status === 'Need Revision' || q.tags?.includes('#revise'));
+  const weakest = subjects.map(s => ({
+    s,
+    cnt: mistakes.filter(q => q.subject === s.id).length
+  })).sort((a, b) => b.cnt - a.cnt)[0];
+  const maxM = Math.max(1, ...subjects.map(s => mistakes.filter(q => q.subject === s.id).length));
+  const maxP = Math.max(1, ...subjects.map(s => pyqs.filter(q => q.subject === s.id).length));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      paddingBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 24,
+      flexWrap: 'wrap',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 800,
+      color: '#e2e8f0',
+      letterSpacing: -.5
+    }
+  }, "Dashboard"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, "Your GATE prep overview")), /*#__PURE__*/React.createElement("button", {
+    onClick: onBackup,
+    style: {
+      background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '8px 16px',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDCBE Backup / Restore")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))',
+      gap: 10,
+      marginBottom: 28
+    }
+  }, [['Test Mistakes', '#6366f1', totalM], ['PYQs Saved', '#06b6d4', totalP], ['Important PYQs', '#f59e0b', impP], ['Need Discussion', '#ef4444', discP], ['Need Revision', '#ef4444', needRevM.length], ['Mastered', '#22c55e', mistakes.filter(q => q.status === 'Mastered').length]].map(([l, c, v]) => /*#__PURE__*/React.createElement("div", {
+    key: l,
+    style: {
+      background: '#0d1120',
+      border: '1px solid #1a1f35',
+      borderRadius: 10,
+      padding: '14px 12px',
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      marginBottom: 6,
+      fontWeight: 600,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, l), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 26,
+      fontWeight: 800,
+      color: c
+    }
+  }, v)))), weakest?.cnt > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#1a0a0a',
+      border: '1px solid #3f1515',
+      borderRadius: 10,
+      padding: '12px 16px',
+      marginBottom: 20,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 20
+    }
+  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 11,
+      color: '#ef4444',
+      fontWeight: 700,
+      marginBottom: 2
+    }
+  }, "WEAKEST SUBJECT"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#fca5a5'
+    }
+  }, weakest.s.name, " \u2014 ", weakest.cnt, " mistakes"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 20,
+      marginBottom: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#475569',
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Mistakes by Subject"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, subjects.map(s => {
+    const c = mistakes.filter(q => q.subject === s.id).length;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: '#64748b',
+        width: 100,
+        flexShrink: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, s.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        background: '#131929',
+        borderRadius: 3,
+        height: 6,
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: c ? `${c / maxM * 100}%` : '0',
+        background: s.color,
+        height: '100%',
+        borderRadius: 3,
+        transition: 'width .6s'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: c ? s.color : '#374151',
+        minWidth: 20,
+        textAlign: 'right',
+        fontWeight: 700
+      }
+    }, c));
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#475569',
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "PYQs by Subject"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, subjects.map(s => {
+    const c = pyqs.filter(q => q.subject === s.id).length;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: '#64748b',
+        width: 100,
+        flexShrink: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, s.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        background: '#131929',
+        borderRadius: 3,
+        height: 6,
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: c ? `${c / maxP * 100}%` : '0',
+        background: '#06b6d4',
+        height: '100%',
+        borderRadius: 3,
+        transition: 'width .6s'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: c ? '#06b6d4' : '#374151',
+        minWidth: 20,
+        textAlign: 'right',
+        fontWeight: 700
+      }
+    }, c));
+  })))), needRevM.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#ef4444',
+      marginBottom: 10,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Flagged for Revision (", needRevM.length, ")"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 5
+    }
+  }, needRevM.slice(0, 5).map(q => /*#__PURE__*/React.createElement("div", {
+    key: q.id,
+    style: {
+      background: '#0d1120',
+      border: '1px solid #ef444420',
+      borderRadius: 7,
+      padding: '8px 12px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: '#cbd5e1',
+      flex: 1,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, q.title), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#475569',
+      flexShrink: 0
+    }
+  }, subjects.find(s => s.id === q.subject)?.name))), needRevM.length > 5 && /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 11,
+      color: '#475569',
+      textAlign: 'center',
+      padding: '6px 0'
+    }
+  }, "+", needRevM.length - 5, " more"))), totalM === 0 && totalP === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '40px 20px',
+      background: '#0d1120',
+      borderRadius: 12,
+      border: '1px dashed #1e2540',
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 32,
+      marginBottom: 10
+    }
+  }, "\uD83C\uDFAF"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      color: '#475569'
+    }
+  }, "Click a subject \u2192 add your first mistake or PYQ!")));
 }
-
-function EmptyState({type}){
-  return(
-    <div style={{textAlign:'center',padding:'50px 20px',background:type==='pyq'?'#060f1a':'#0d1120',borderRadius:12,border:`1px dashed ${type==='pyq'?'#0e2040':'#1a1f35'}`}}>
-      <p style={{fontSize:36,marginBottom:10}}>{type==='pyq'?'📚':'📭'}</p>
-      <p style={{fontSize:13,color:'#475569'}}>No {type==='pyq'?'PYQ entries':'mistakes'} saved yet.</p>
-      <p style={{fontSize:12,color:'#374151',marginTop:4}}>Click <strong style={{color:type==='pyq'?'#22d3ee':'#818cf8'}}>+ {type==='pyq'?'PYQ':'Mistake'}</strong> to add one!</p>
-    </div>
-  )
+function EmptyState({
+  type
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '50px 20px',
+      background: type === 'pyq' ? '#060f1a' : '#0d1120',
+      borderRadius: 12,
+      border: `1px dashed ${type === 'pyq' ? '#0e2040' : '#1a1f35'}`
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 36,
+      marginBottom: 10
+    }
+  }, type === 'pyq' ? '📚' : '📭'), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: '#475569'
+    }
+  }, "No ", type === 'pyq' ? 'PYQ entries' : 'mistakes', " saved yet."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#374151',
+      marginTop: 4
+    }
+  }, "Click ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: type === 'pyq' ? '#22d3ee' : '#818cf8'
+    }
+  }, "+ ", type === 'pyq' ? 'PYQ' : 'Mistake'), " to add one!"));
 }
-
 
 // ════════════════════════════════════════════════════════════════
 // BACKUP — Export & Import (text + images from IndexedDB)
 // ════════════════════════════════════════════════════════════════
 async function exportBackup(mistakes, pyqs, subjects) {
   const allKeys = new Set();
-  [...mistakes,...pyqs].forEach(q=>{
-    if(q.imageKey) allKeys.add(q.imageKey);
-    (q.explanationBlocks||[]).forEach(b=>{ if(b.imageKey) allKeys.add(b.imageKey); });
+  [...mistakes, ...pyqs].forEach(q => {
+    if (q.imageKey) allKeys.add(q.imageKey);
+    (q.explanationBlocks || []).forEach(b => {
+      if (b.imageKey) allKeys.add(b.imageKey);
+    });
   });
   const images = {};
-  for(const k of allKeys){
-    try{ const u = await ImgDB.load(k); if(u) images[k]=u; }catch(e){}
+  for (const k of allKeys) {
+    try {
+      const u = await ImgDB.load(k);
+      if (u) images[k] = u;
+    } catch (e) {}
   }
-  const blob = new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),subjects,mistakes,pyqs,images},null,2)],{type:'application/json'});
+  const blob = new Blob([JSON.stringify({
+    version: 4,
+    exportedAt: new Date().toISOString(),
+    subjects,
+    mistakes,
+    pyqs,
+    images
+  }, null, 2)], {
+    type: 'application/json'
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href=url; a.download='MistakeVault_Backup_'+new Date().toISOString().slice(0,10)+'.json';
-  a.click(); URL.revokeObjectURL(url);
+  a.href = url;
+  a.download = 'MistakeVault_Backup_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
 }
-
 async function importBackup(file, setSubjects, setMistakes, setPyqs) {
-  return new Promise((res,rej)=>{
+  return new Promise((res, rej) => {
     const reader = new FileReader();
     reader.onload = async e => {
-      try{
-        const b = JSON.parse(e.target.result);
-        if(!b.mistakes) throw new Error('Invalid backup file');
-        const imgs = b.images||{};
-        for(const [k,dataURL] of Object.entries(imgs)){
-          try{ await ImgDB.save(k, dataURL); }catch(ex){}
+      try {
+        let b = JSON.parse(e.target.result);
+        if (b.localStorage && b.indexedDBImages) {
+          const ls = b.localStorage;
+          const readJSON = (key, fallback) => {
+            try {
+              return ls[key] ? JSON.parse(ls[key]) : fallback;
+            } catch (err) {
+              return fallback;
+            }
+          };
+          b = {
+            subjects: readJSON('mv_subjects_v4', []),
+            mistakes: readJSON('mv_mistakes_v4', []),
+            pyqs: readJSON('mv_pyqs_v4', []),
+            images: b.indexedDBImages || {}
+          };
         }
-        if(b.subjects?.length) setSubjects(b.subjects);
-        if(b.mistakes?.length) setMistakes(b.mistakes);
-        if(b.pyqs?.length) setPyqs(b.pyqs);
-        res({mistakes:b.mistakes?.length||0, pyqs:b.pyqs?.length||0, images:Object.keys(imgs).length});
-      }catch(err){ rej(err); }
+        if (!Array.isArray(b.mistakes)) throw new Error('Invalid backup file');
+        const imgs = b.images || {};
+        for (const [k, dataURL] of Object.entries(imgs)) {
+          try {
+            await ImgDB.save(k, dataURL);
+          } catch (ex) {}
+        }
+        if (b.subjects?.length) setSubjects(b.subjects);
+        if (b.mistakes?.length) setMistakes(b.mistakes);
+        if (b.pyqs?.length) setPyqs(b.pyqs);
+        res({
+          mistakes: b.mistakes?.length || 0,
+          pyqs: b.pyqs?.length || 0,
+          images: Object.keys(imgs).length
+        });
+      } catch (err) {
+        rej(err);
+      }
     };
-    reader.onerror=rej;
+    reader.onerror = rej;
     reader.readAsText(file);
   });
 }
-
-function BackupModal({mistakes,pyqs,subjects,setSubjects,setMistakes,setPyqs,onClose}){
-  const[status,setStatus]=useState('');
-  const[loading,setLoading]=useState(false);
-  const fileRef=useRef();
-  const doExport=async()=>{
-    setLoading(true);setStatus('Preparing backup...');
-    try{ await exportBackup(mistakes,pyqs,subjects); setStatus('✅ Backup downloaded! ('+mistakes.length+' mistakes, '+pyqs.length+' PYQs)'); }
-    catch(e){ setStatus('❌ Export failed: '+e.message); }
+function BackupModal({
+  mistakes,
+  pyqs,
+  subjects,
+  setSubjects,
+  setMistakes,
+  setPyqs,
+  onClose
+}) {
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
+  const fileRef = useRef();
+  const doExport = async () => {
+    setLoading(true);
+    setStatus('Preparing backup...');
+    try {
+      await exportBackup(mistakes, pyqs, subjects);
+      setStatus('✅ Backup downloaded! (' + mistakes.length + ' mistakes, ' + pyqs.length + ' PYQs)');
+    } catch (e) {
+      setStatus('❌ Export failed: ' + e.message);
+    }
     setLoading(false);
   };
-  const doImport=async file=>{
-    if(!file)return;
-    if(!window.confirm('Import will merge with your current data. Continue?'))return;
-    setLoading(true);setStatus('Importing...');
-    try{
-      const r=await importBackup(file,setSubjects,setMistakes,setPyqs);
-      setStatus('✅ Imported! '+r.mistakes+' mistakes, '+r.pyqs+' PYQs, '+r.images+' images');
-    }catch(e){ setStatus('❌ Import failed: '+e.message); }
+  const doImport = async file => {
+    if (!file) return;
+    if (!window.confirm('Import will merge with your current data. Continue?')) return;
+    setLoading(true);
+    setStatus('Importing...');
+    try {
+      const r = await importBackup(file, setSubjects, setMistakes, setPyqs);
+      setStatus('✅ Imported! ' + r.mistakes + ' mistakes, ' + r.pyqs + ' PYQs, ' + r.images + ' images');
+    } catch (e) {
+      setStatus('❌ Import failed: ' + e.message);
+    }
     setLoading(false);
   };
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:16}}>
-      <div style={{background:'#0a1628',border:'1px solid #06b6d433',borderRadius:10,padding:16}}>
-        <p style={{fontSize:13,fontWeight:700,color:'#22d3ee',marginBottom:6}}>📦 Export Backup</p>
-        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Downloads a <strong style={{color:'#94a3b8'}}>.json</strong> file with all questions, PYQs, and images. Save to Google Drive weekly.</p>
-        <button onClick={doExport} disabled={loading} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
-          ⬇ Download Backup ({mistakes.length+pyqs.length} items)
-        </button>
-      </div>
-      <div style={{background:'#1a0f05',border:'1px solid #f59e0b33',borderRadius:10,padding:16}}>
-        <p style={{fontSize:13,fontWeight:700,color:'#f59e0b',marginBottom:6}}>📂 Import Backup</p>
-        <p style={{fontSize:12,color:'#475569',marginBottom:12,lineHeight:1.6}}>Restore from a previously exported <strong style={{color:'#94a3b8'}}>.json</strong> file. Merges with current data.</p>
-        <button onClick={()=>fileRef.current.click()} disabled={loading} style={{background:'linear-gradient(135deg,#f59e0b,#d97706)',border:'none',borderRadius:8,color:'#fff',padding:'9px 20px',fontSize:13,fontWeight:700,opacity:loading?.6:1}}>
-          ⬆ Import from Backup
-        </button>
-        <input ref={fileRef} type="file" accept=".json" onChange={e=>doImport(e.target.files[0])} style={{display:'none'}}/>
-      </div>
-      <div style={{background:'#131929',border:'1px solid #1e2540',borderRadius:10,padding:14}}>
-        <p style={{fontSize:11,fontWeight:700,color:'#475569',marginBottom:6,textTransform:'uppercase',letterSpacing:.5}}>💡 Tip</p>
-        <p style={{fontSize:12,color:'#475569',lineHeight:1.7}}>Export every <strong style={{color:'#94a3b8'}}>week</strong> → save to Google Drive. Protects against cache clears or device changes. <strong style={{color:'#f59e0b'}}>Images are included.</strong></p>
-      </div>
-      {status&&<div style={{background:status.startsWith('✅')?'#052010':'#1a0505',border:'1px solid '+(status.startsWith('✅')?'#22c55e33':'#ef444433'),borderRadius:8,padding:'10px 14px',fontSize:13,color:status.startsWith('✅')?'#22c55e':'#ef4444'}}>{status}</div>}
-      {loading&&<div style={{display:'flex',alignItems:'center',gap:8,color:'#475569',fontSize:12}}><div style={{width:16,height:16,border:'2px solid #1e2540',borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>Processing...</div>}
-      <div style={{display:'flex',justifyContent:'flex-end'}}><button onClick={onClose} style={{background:'none',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'8px 16px',fontSize:13}}>Close</button></div>
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0a1628',
+      border: '1px solid #06b6d433',
+      borderRadius: 10,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#22d3ee',
+      marginBottom: 6
+    }
+  }, "\uD83D\uDCE6 Export Backup"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginBottom: 12,
+      lineHeight: 1.6
+    }
+  }, "Downloads a ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#94a3b8'
+    }
+  }, ".json"), " file with all questions, PYQs, and images. Save to Google Drive weekly."), /*#__PURE__*/React.createElement("button", {
+    onClick: doExport,
+    disabled: loading,
+    style: {
+      background: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '9px 20px',
+      fontSize: 13,
+      fontWeight: 700,
+      opacity: loading ? .6 : 1
+    }
+  }, "\u2B07 Download Backup (", mistakes.length + pyqs.length, " items)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#1a0f05',
+      border: '1px solid #f59e0b33',
+      borderRadius: 10,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#f59e0b',
+      marginBottom: 6
+    }
+  }, "\uD83D\uDCC2 Import Backup"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginBottom: 12,
+      lineHeight: 1.6
+    }
+  }, "Restore from a previously exported ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#94a3b8'
+    }
+  }, ".json"), " file. Merges with current data."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => fileRef.current.click(),
+    disabled: loading,
+    style: {
+      background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '9px 20px',
+      fontSize: 13,
+      fontWeight: 700,
+      opacity: loading ? .6 : 1
+    }
+  }, "\u2B06 Import from Backup"), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: ".json",
+    onChange: e => doImport(e.target.files[0]),
+    style: {
+      display: 'none'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 10,
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#475569',
+      marginBottom: 6,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "\uD83D\uDCA1 Tip"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      lineHeight: 1.7
+    }
+  }, "Export every ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#94a3b8'
+    }
+  }, "week"), " \u2192 save to Google Drive. Protects against cache clears or device changes. ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: '#f59e0b'
+    }
+  }, "Images are included."))), status && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: status.startsWith('✅') ? '#052010' : '#1a0505',
+      border: '1px solid ' + (status.startsWith('✅') ? '#22c55e33' : '#ef444433'),
+      borderRadius: 8,
+      padding: '10px 14px',
+      fontSize: 13,
+      color: status.startsWith('✅') ? '#22c55e' : '#ef4444'
+    }
+  }, status), loading && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      color: '#475569',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 16,
+      height: 16,
+      border: '2px solid #1e2540',
+      borderTopColor: '#6366f1',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite'
+    }
+  }), "Processing..."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      color: '#64748b',
+      padding: '8px 16px',
+      fontSize: 13
+    }
+  }, "Close")));
 }
 
 // ════════════════════════════════════════════════════════════════
 // MAIN APP
 // ════════════════════════════════════════════════════════════════
-function App(){
-  const[ready,setReady]=useState(false);
-  const[subjects,setSubjects]=useLocalStorage('mv_subjects_v4',SUBJECTS_DEFAULT);
-  const[mistakes,setMistakes]=useLocalStorage('mv_mistakes_v4',[]);
-  const[pyqs,setPyqs]=useLocalStorage('mv_pyqs_v4',[]);
-
-  const[view,setView]=useState('dashboard');
-  const[selSub,setSelSub]=useState(null);
-  const[selMode,setSelMode]=useState(null);
-  const[selChapter,setSelChapter]=useState(null);
-
-  const[showAddM,setShowAddM]=useState(false);
-  const[showAddP,setShowAddP]=useState(false);
-  const[editM,setEditM]=useState(null);
-  const[editP,setEditP]=useState(null);
-  const[viewM,setViewM]=useState(null);
-  const[viewP,setViewP]=useState(null);
-  const[showAddSub,setShowAddSub]=useState(false);
-  const[showBackup,setShowBackup]=useState(false);
-  const[showAddCh,setShowAddCh]=useState(false);
-  const[showDelCh,setShowDelCh]=useState(false);
-  const[newSubName,setNewSubName]=useState('');
-  const[newChName,setNewChName]=useState('');
-  const[search,setSearch]=useState('');
-  const[filterM,setFilterM]=useState({subject:'',mistakeType:'',difficulty:'',status:''});
-  const[filterP,setFilterP]=useState({subject:'',chapter:'',year:'',status:'',important:false,doubt:false});
-  const[sidebarOpen,setSidebarOpen]=useState(true);
+function App() {
+  const [ready, setReady] = useState(false);
+  const [subjects, setSubjects] = useLocalStorage('mv_subjects_v4', SUBJECTS_DEFAULT);
+  const [mistakes, setMistakes] = useLocalStorage('mv_mistakes_v4', []);
+  const [pyqs, setPyqs] = useLocalStorage('mv_pyqs_v4', []);
+  const [view, setView] = useState('dashboard');
+  const [selSub, setSelSub] = useState(null);
+  const [selMode, setSelMode] = useState(null);
+  const [selChapter, setSelChapter] = useState(null);
+  const [showAddM, setShowAddM] = useState(false);
+  const [showAddP, setShowAddP] = useState(false);
+  const [editM, setEditM] = useState(null);
+  const [editP, setEditP] = useState(null);
+  const [viewM, setViewM] = useState(null);
+  const [viewP, setViewP] = useState(null);
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
+  const [showAddCh, setShowAddCh] = useState(false);
+  const [showDelCh, setShowDelCh] = useState(false);
+  const [newSubName, setNewSubName] = useState('');
+  const [newChName, setNewChName] = useState('');
+  const [search, setSearch] = useState('');
+  const [filterM, setFilterM] = useState({
+    subject: '',
+    mistakeType: '',
+    difficulty: '',
+    status: ''
+  });
+  const [filterP, setFilterP] = useState({
+    subject: '',
+    chapter: '',
+    year: '',
+    status: '',
+    important: false,
+    doubt: false
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Run migration once on startup
-  useEffect(()=>{
-    migrateOldData().then(()=>setReady(true)).catch(()=>setReady(true));
-  },[]);
-
-  const sub=subjects.find(s=>s.id===selSub);
-  const nav=(v,sid,mode,ch)=>{setView(v);if(sid!==undefined)setSelSub(sid);if(mode!==undefined)setSelMode(mode);if(ch!==undefined)setSelChapter(ch)};
-
-  const visM=useMemo(()=>{
-    let qs=mistakes;
-    if(view==='chapter-m')qs=qs.filter(q=>q.subject===selSub&&q.chapter===selChapter);
-    else if(view==='all-m'||view==='search'){
-      if(filterM.subject)qs=qs.filter(q=>q.subject===filterM.subject);
-      if(filterM.mistakeType)qs=qs.filter(q=>q.mistakeType===filterM.mistakeType);
-      if(filterM.difficulty)qs=qs.filter(q=>q.difficulty===filterM.difficulty);
-      if(filterM.status)qs=qs.filter(q=>q.status===filterM.status);
+  useEffect(() => {
+    migrateOldData().then(() => setReady(true)).catch(() => setReady(true));
+  }, []);
+  const sub = subjects.find(s => s.id === selSub);
+  const nav = (v, sid, mode, ch) => {
+    setView(v);
+    if (sid !== undefined) setSelSub(sid);
+    if (mode !== undefined) setSelMode(mode);
+    if (ch !== undefined) setSelChapter(ch);
+  };
+  const visM = useMemo(() => {
+    let qs = mistakes;
+    if (view === 'chapter-m') qs = qs.filter(q => q.subject === selSub && q.chapter === selChapter);else if (view === 'all-m' || view === 'search') {
+      if (filterM.subject) qs = qs.filter(q => q.subject === filterM.subject);
+      if (filterM.mistakeType) qs = qs.filter(q => q.mistakeType === filterM.mistakeType);
+      if (filterM.difficulty) qs = qs.filter(q => q.difficulty === filterM.difficulty);
+      if (filterM.status) qs = qs.filter(q => q.status === filterM.status);
     }
-    if(search.trim()){const s=search.toLowerCase();qs=qs.filter(q=>q.title?.toLowerCase().includes(s)||q.tags?.some(t=>t.includes(s))||q.notes?.toLowerCase().includes(s))}
-    return qs;
-  },[mistakes,view,selSub,selChapter,search,filterM]);
-
-  const visP=useMemo(()=>{
-    let qs=pyqs;
-    if(view==='chapter-p')qs=qs.filter(q=>q.subject===selSub&&q.chapter===selChapter);
-    else if(view==='all-p'||view==='search'){
-      if(filterP.subject)qs=qs.filter(q=>q.subject===filterP.subject);
-      if(filterP.chapter)qs=qs.filter(q=>q.chapter===filterP.chapter);
-      if(filterP.year)qs=qs.filter(q=>q.year?.toLowerCase().includes(filterP.year.toLowerCase()));
-      if(filterP.status)qs=qs.filter(q=>q.status===filterP.status);
-      if(filterP.important)qs=qs.filter(q=>q.isImportant);
-      if(filterP.doubt)qs=qs.filter(q=>q.isDoubt);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      qs = qs.filter(q => q.title?.toLowerCase().includes(s) || q.tags?.some(t => t.includes(s)) || q.notes?.toLowerCase().includes(s));
     }
-    if(search.trim()){const s=search.toLowerCase();qs=qs.filter(q=>q.qNum?.toLowerCase().includes(s)||q.year?.toLowerCase().includes(s)||q.tags?.some(t=>t.includes(s))||q.notes?.toLowerCase().includes(s)||q.pageRef?.toLowerCase().includes(s))}
     return qs;
-  },[pyqs,view,selSub,selChapter,search,filterP]);
-
-  const saveM=q=>{setMistakes(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]})};
-  const saveP=q=>{setPyqs(p=>{const i=p.findIndex(x=>x.id===q.id);return i>=0?p.map(x=>x.id===q.id?q:x):[q,...p]})};
-  const delM=async id=>{const q=mistakes.find(x=>x.id===id);if(q?.imageKey)await ImgDB.remove(q.imageKey);for(const b of q?.explanationBlocks||[])if(b.imageKey)await ImgDB.remove(b.imageKey);setMistakes(p=>p.filter(x=>x.id!==id));setViewM(null)};
-  const delP=async id=>{const q=pyqs.find(x=>x.id===id);if(q?.imageKey)await ImgDB.remove(q.imageKey);setPyqs(p=>p.filter(x=>x.id!==id));setViewP(null)};
-
-  const addSubject=()=>{if(!newSubName.trim())return;const colors=['#818cf8','#34d399','#f472b6','#38bdf8','#fb923c','#a78bfa','#22d3ee','#fbbf24'];setSubjects(p=>[...p,{id:'s'+Date.now(),name:newSubName.trim(),color:colors[p.length%colors.length],chapters:[]}]);setNewSubName('');setShowAddSub(false)};
-  const addChapter=()=>{if(!newChName.trim()||!selSub)return;setSubjects(p=>p.map(s=>s.id===selSub?{...s,chapters:[...s.chapters,newChName.trim()]}:s));setNewChName('');setShowAddCh(false)};
-  const delChapter=ch=>{if(!window.confirm(`Delete chapter "${ch}"?`))return;setSubjects(p=>p.map(s=>s.id===selSub?{...s,chapters:s.chapters.filter(c=>c!==ch)}:s))};
-
-  const isSearch=search.trim().length>0;
-
-  if(!ready) return(
-    <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12,background:'#0a0d14'}}>
-      <div style={{width:40,height:40,border:'3px solid #1e2540',borderTopColor:'#6366f1',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
-      <p style={{color:'#475569',fontSize:13}}>Loading MistakeVault...</p>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
-
-  return(
-    <div style={{display:'flex',height:'100vh',background:'#0a0d14',overflow:'hidden'}}>
-      {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?238:52,background:'#060912',borderRight:'1px solid #0d1120',display:'flex',flexDirection:'column',flexShrink:0,transition:'width .2s',overflow:'hidden'}}>
-        <div style={{padding:'13px 10px',borderBottom:'1px solid #0d1120',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-          <button onClick={()=>setSidebarOpen(o=>!o)} style={{background:'none',border:'none',color:'#6366f1',fontSize:16,padding:'5px 7px',borderRadius:6,flexShrink:0}}>☰</button>
-          {sidebarOpen&&<div><span style={{fontSize:13,fontWeight:800,color:'#818cf8',letterSpacing:.5}}>MistakeVault</span><span style={{fontSize:9,color:'#374151',display:'block'}}>GATE Prep Tracker</span></div>}
-        </div>
-        <div style={{flex:1,overflowY:'auto',padding:'6px 0'}}>
-          {[{id:'dashboard',icon:'◈',label:'Dashboard',badge:0},{id:'all-m',icon:'⚡',label:'All Mistakes',badge:mistakes.length,bc:'#6366f1'},{id:'all-p',icon:'📚',label:'All PYQs',badge:pyqs.length,bc:'#06b6d4'}].map(({id,icon,label,badge,bc})=>(
-            <button key={id} onClick={()=>nav(id,null,null,null)}
-              style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'9px 12px',background:view===id?'#6366f115':'none',border:'none',color:view===id?'#818cf8':'#475569',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:view===id?'2px solid #6366f1':'2px solid transparent'}}>
-              <span style={{width:18,textAlign:'center',flexShrink:0}}>{icon}</span>
-              {sidebarOpen&&<><span style={{flex:1}}>{label}</span>{badge>0&&<Badge count={badge} color={bc||'#6366f1'}/>}</>}
-            </button>
-          ))}
-          {sidebarOpen&&<button onClick={()=>setShowBackup(true)} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'9px 12px',background:'none',border:'none',color:'#f59e0b',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:'2px solid transparent'}}>
-            <span style={{width:18,textAlign:'center',flexShrink:0}}>💾</span>
-            <span>Backup / Restore</span>
-          </button>}
-          {sidebarOpen&&<div style={{padding:'10px 12px 4px',fontSize:9,color:'#374151',fontWeight:700,letterSpacing:1,textTransform:'uppercase'}}>Subjects</div>}
-          {subjects.map(s=>{
-            const mCnt=mistakes.filter(q=>q.subject===s.id).length;
-            const pCnt=pyqs.filter(q=>q.subject===s.id).length;
-            const active=['subject','mode','chapter-m','chapter-p'].includes(view)&&selSub===s.id;
-            return(
-              <button key={s.id} onClick={()=>nav('subject',s.id,null,null)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 12px',background:active?s.color+'12':'none',border:'none',color:active?s.color:'#475569',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:active?`2px solid ${s.color}`:'2px solid transparent',transition:'background .15s'}}>
-                <span style={{width:7,height:7,borderRadius:'50%',background:s.color,flexShrink:0,marginLeft:4}}/>
-                {sidebarOpen&&<><span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</span>
-                <div style={{display:'flex',gap:3}}>{mCnt>0&&<Badge count={mCnt} color={s.color}/>}{pCnt>0&&<Badge count={pCnt} color="#06b6d4"/>}</div></>}
-              </button>
-            )
-          })}
-          {sidebarOpen&&<button onClick={()=>setShowAddSub(true)} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'8px 12px',background:'none',border:'none',color:'#374151',fontSize:12,textAlign:'left',cursor:'pointer',borderLeft:'2px solid transparent'}}>
-            <span style={{marginLeft:4}}>+</span><span>Add Subject</span>
-          </button>}
-        </div>
-      </div>
-
-      {/* MAIN */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        <div style={{padding:'10px 18px',borderBottom:'1px solid #0d1120',display:'flex',alignItems:'center',gap:10,background:'#060912',flexShrink:0}}>
-          <div style={{flex:1,position:'relative'}}>
-            <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',color:'#374151',fontSize:14,pointerEvents:'none'}}>⌕</span>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search questions, PYQs, tags, notes..." style={{paddingLeft:32,fontSize:13}}/>
-          </div>
-          {!isSearch&&<>
-            <button onClick={()=>setShowAddM(true)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',fontSize:12,fontWeight:700,whiteSpace:'nowrap',flexShrink:0}}>+ Mistake</button>
-            <button onClick={()=>setShowAddP(true)} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',fontSize:12,fontWeight:700,whiteSpace:'nowrap',flexShrink:0}}>+ PYQ</button>
-          </>}
-          {isSearch&&<button onClick={()=>setSearch('')} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:8,color:'#64748b',padding:'7px 12px',fontSize:12,flexShrink:0}}>✕ Clear</button>}
-        </div>
-
-        <div style={{flex:1,overflowY:'auto',padding:20}}>
-          {/* SEARCH */}
-          {isSearch&&<div>
-            <h2 style={{fontSize:16,fontWeight:700,marginBottom:4}}>Search: "{search}"</h2>
-            <p style={{fontSize:12,color:'#475569',marginBottom:16}}>{visM.length} mistakes · {visP.length} PYQs</p>
-            {visM.length>0&&<><h3 style={{fontSize:11,fontWeight:700,color:'#6366f1',marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>Mistakes ({visM.length})</h3>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10,marginBottom:20}}>{visM.map(q=><MistakeCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewM(q)}/>)}</div></>}
-            {visP.length>0&&<><h3 style={{fontSize:11,fontWeight:700,color:'#06b6d4',marginBottom:10,textTransform:'uppercase',letterSpacing:.5}}>PYQs ({visP.length})</h3>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visP.map(q=><PYQCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewP(q)}/>)}</div></>}
-            {visM.length===0&&visP.length===0&&<div style={{textAlign:'center',padding:60,color:'#374151'}}><p style={{fontSize:32,marginBottom:10}}>🔍</p><p>No results for "{search}"</p></div>}
-          </div>}
-
-          {!isSearch&&view==='dashboard'&&<Dashboard mistakes={mistakes} pyqs={pyqs} subjects={subjects} onBackup={()=>setShowBackup(true)}/>}
-
-          {!isSearch&&view==='all-m'&&<div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-              <div><h2 style={{fontSize:17,fontWeight:700}}>All Mistakes</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visM.length} questions</p></div>
-              <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-                <select value={filterM.subject} onChange={e=>setFilterM(f=>({...f,subject:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <select value={filterM.mistakeType} onChange={e=>setFilterM(f=>({...f,mistakeType:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Types</option>{MISTAKE_TYPES.map(m=><option key={m}>{m}</option>)}
-                </select>
-                <select value={filterM.difficulty} onChange={e=>setFilterM(f=>({...f,difficulty:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Difficulty</option>{DIFFICULTIES.map(d=><option key={d}>{d}</option>)}
-                </select>
-                <select value={filterM.status} onChange={e=>setFilterM(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Status</option>{MISTAKE_STATUSES.map(s=><option key={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-            {visM.length===0?<EmptyState type="mistake"/>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visM.map(q=><MistakeCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewM(q)}/>)}</div>}
-          </div>}
-
-          {!isSearch&&view==='all-p'&&<div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-              <div><h2 style={{fontSize:17,fontWeight:700,color:'#22d3ee'}}>All PYQs</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visP.length} entries</p></div>
-              <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-                <select value={filterP.subject} onChange={e=>setFilterP(f=>({...f,subject:e.target.value,chapter:''}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Subjects</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <input value={filterP.year} onChange={e=>setFilterP(f=>({...f,year:e.target.value}))} placeholder="Filter by year/exam" style={{width:130,fontSize:11,padding:'5px 8px'}}/>
-                <select value={filterP.status} onChange={e=>setFilterP(f=>({...f,status:e.target.value}))} style={{width:'auto',fontSize:11,padding:'5px 8px'}}>
-                  <option value="">All Status</option>{PYQ_STATUSES.map(s=><option key={s}>{s}</option>)}
-                </select>
-                <button onClick={()=>setFilterP(f=>({...f,important:!f.important}))} style={{background:filterP.important?'#f59e0b22':'#131929',border:`1px solid ${filterP.important?'#f59e0b':'#1e2540'}`,borderRadius:7,color:filterP.important?'#f59e0b':'#64748b',padding:'5px 10px',fontSize:11}}>⭐</button>
-                <button onClick={()=>setFilterP(f=>({...f,doubt:!f.doubt}))} style={{background:filterP.doubt?'#ef444422':'#131929',border:`1px solid ${filterP.doubt?'#ef4444':'#1e2540'}`,borderRadius:7,color:filterP.doubt?'#ef4444':'#64748b',padding:'5px 10px',fontSize:11}}>❓</button>
-              </div>
-            </div>
-            {visP.length===0?<EmptyState type="pyq"/>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visP.map(q=><PYQCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewP(q)}/>)}</div>}
-          </div>}
-
-          {!isSearch&&view==='subject'&&sub&&<div>
-            <div style={{marginBottom:24}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                <span style={{width:10,height:10,borderRadius:'50%',background:sub.color,display:'inline-block'}}/>
-                <h2 style={{fontSize:20,fontWeight:800,color:sub.color}}>{sub.name}</h2>
-              </div>
-              <p style={{fontSize:12,color:'#475569'}}>{mistakes.filter(q=>q.subject===sub.id).length} mistakes · {pyqs.filter(q=>q.subject===sub.id).length} PYQs</p>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,maxWidth:640}}>
-              <div onClick={()=>nav('mode',selSub,'mistake',null)} style={{background:'linear-gradient(135deg,#0d0f1f,#131629)',border:'1px solid #6366f130',borderRadius:14,padding:24,cursor:'pointer',transition:'transform .15s,border-color .2s'}}
-                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#6366f1'}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#6366f130'}}>
-                <div style={{fontSize:32,marginBottom:12}}>⚡</div>
-                <h3 style={{fontSize:15,fontWeight:800,color:'#818cf8',marginBottom:6}}>Test Series Mistakes</h3>
-                <p style={{fontSize:12,color:'#475569',marginBottom:14,lineHeight:1.5}}>Track wrong answers from mock tests. Upload screenshots, write explanations.</p>
-                <span style={{fontSize:22,fontWeight:800,color:'#6366f1'}}>{mistakes.filter(q=>q.subject===sub.id).length}</span><span style={{fontSize:11,color:'#475569',marginLeft:6}}>saved</span>
-              </div>
-              <div onClick={()=>nav('mode',selSub,'pyq',null)} style={{background:'linear-gradient(135deg,#060f1a,#091525)',border:'1px solid #06b6d430',borderRadius:14,padding:24,cursor:'pointer',transition:'transform .15s,border-color .2s'}}
-                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#06b6d4'}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor='#06b6d430'}}>
-                <div style={{fontSize:32,marginBottom:12}}>📚</div>
-                <h3 style={{fontSize:15,fontWeight:800,color:'#22d3ee',marginBottom:6}}>PYQ Tracker</h3>
-                <p style={{fontSize:12,color:'#475569',marginBottom:14,lineHeight:1.5}}>Log previous year questions. Track year, solution location, notebook reference.</p>
-                <span style={{fontSize:22,fontWeight:800,color:'#06b6d4'}}>{pyqs.filter(q=>q.subject===sub.id).length}</span><span style={{fontSize:11,color:'#475569',marginLeft:6}}>saved</span>
-              </div>
-            </div>
-          </div>}
-
-          {!isSearch&&view==='mode'&&sub&&<div>
-            <button onClick={()=>nav('subject',selSub,null,null)} style={{background:'none',border:'none',color:'#475569',fontSize:12,cursor:'pointer',padding:0,marginBottom:16}}>← {sub.name}</button>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
-              <div>
-                <h2 style={{fontSize:17,fontWeight:800,color:selMode==='pyq'?'#22d3ee':'#818cf8'}}>{selMode==='pyq'?'📚 PYQ Tracker':'⚡ Test Series Mistakes'} — {sub.name}</h2>
-                <p style={{fontSize:12,color:'#475569',marginTop:2}}>{sub.chapters.length} chapters</p>
-              </div>
-              <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>setShowAddCh(true)} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'6px 12px',fontSize:12}}>+ Chapter</button>
-                <button onClick={()=>setShowDelCh(true)} style={{background:'#131929',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'6px 12px',fontSize:12}}>− Chapter</button>
-              </div>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:10}}>
-              {sub.chapters.map(ch=>{
-                const cnt=selMode==='pyq'?pyqs.filter(q=>q.subject===sub.id&&q.chapter===ch).length:mistakes.filter(q=>q.subject===sub.id&&q.chapter===ch).length;
-                const accent=selMode==='pyq'?'#06b6d4':sub.color;
-                return(
-                  <div key={ch} onClick={()=>nav(selMode==='pyq'?'chapter-p':'chapter-m',selSub,selMode,ch)}
-                    style={{background:selMode==='pyq'?'#060f1a':'#0d1120',border:`1px solid ${selMode==='pyq'?'#0e2040':'#1a1f35'}`,borderRadius:10,padding:14,cursor:'pointer',transition:'border-color .15s,transform .1s'}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=accent;e.currentTarget.style.transform='translateY(-2px)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=selMode==='pyq'?'#0e2040':'#1a1f35';e.currentTarget.style.transform='none'}}>
-                    <p style={{fontSize:13,fontWeight:600,color:'#e2e8f0',marginBottom:10,lineHeight:1.3}}>{ch}</p>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <span style={{fontSize:11,color:'#475569'}}>{cnt} saved</span>
-                      {cnt>0&&<span style={{fontSize:10,background:accent+'22',color:accent,padding:'1px 6px',borderRadius:5,fontWeight:700}}>{cnt}</span>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>}
-
-          {!isSearch&&view==='chapter-m'&&sub&&<div>
-            <button onClick={()=>nav('mode',selSub,'mistake',null)} style={{background:'none',border:'none',color:'#475569',fontSize:12,cursor:'pointer',padding:0,marginBottom:6}}>← {sub.name} / Test Series</button>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-              <div><h2 style={{fontSize:17,fontWeight:700}}>{selChapter}</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visM.length} mistakes</p></div>
-              <button onClick={()=>setShowAddM(true)} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',fontSize:12,fontWeight:700}}>+ Add Mistake</button>
-            </div>
-            {visM.length===0?<EmptyState type="mistake"/>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visM.map(q=><MistakeCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewM(q)}/>)}</div>}
-          </div>}
-
-          {!isSearch&&view==='chapter-p'&&sub&&<div>
-            <button onClick={()=>nav('mode',selSub,'pyq',null)} style={{background:'none',border:'none',color:'#475569',fontSize:12,cursor:'pointer',padding:0,marginBottom:6}}>← {sub.name} / PYQ Tracker</button>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
-              <div><h2 style={{fontSize:17,fontWeight:700,color:'#22d3ee'}}>{selChapter}</h2><p style={{fontSize:12,color:'#475569',marginTop:2}}>{visP.length} PYQs</p></div>
-              <button onClick={()=>setShowAddP(true)} style={{background:'linear-gradient(135deg,#06b6d4,#0ea5e9)',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',fontSize:12,fontWeight:700}}>+ Add PYQ</button>
-            </div>
-            {visP.length===0?<EmptyState type="pyq"/>:<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>{visP.map(q=><PYQCard key={q.id} q={q} subjects={subjects} onClick={()=>setViewP(q)}/>)}</div>}
-          </div>}
-        </div>
-      </div>
-
-      {/* MODALS */}
-      {(showAddM||editM)&&<Modal title={editM?'Edit Mistake':'Add Mistake'} onClose={()=>{setShowAddM(false);setEditM(null)}} wide>
-        <MistakeForm q={editM} subjects={subjects} defaultSubject={selSub} defaultChapter={view==='chapter-m'?selChapter:''} onSave={q=>{saveM(q);setEditM(null);setShowAddM(false)}} onClose={()=>{setShowAddM(false);setEditM(null)}}/>
-      </Modal>}
-      {(showAddP||editP)&&<Modal title={editP?'Edit PYQ':'Add PYQ'} onClose={()=>{setShowAddP(false);setEditP(null)}} wide>
-        <PYQForm q={editP} subjects={subjects} defaultSubject={selSub} defaultChapter={view==='chapter-p'?selChapter:''} onSave={q=>{saveP(q);setEditP(null);setShowAddP(false)}} onClose={()=>{setShowAddP(false);setEditP(null)}}/>
-      </Modal>}
-      {viewM&&!editM&&<Modal title={viewM.title} onClose={()=>setViewM(null)} wide>
-        <MistakeDetail q={viewM} subjects={subjects} onClose={()=>setViewM(null)} onEdit={q=>{setEditM(q);setViewM(null)}} onDelete={delM}/>
-      </Modal>}
-      {viewP&&!editP&&<Modal title={`${viewP.qNum}${viewP.year?' — '+viewP.year:''}`} onClose={()=>setViewP(null)} wide>
-        <PYQDetail q={viewP} subjects={subjects} onClose={()=>setViewP(null)} onEdit={q=>{setEditP(q);setViewP(null)}} onDelete={delP}/>
-      </Modal>}
-      {showBackup&&<Modal title="💾 Backup & Restore" onClose={()=>setShowBackup(false)}>
-        <BackupModal mistakes={mistakes} pyqs={pyqs} subjects={subjects} setSubjects={setSubjects} setMistakes={setMistakes} setPyqs={setPyqs} onClose={()=>setShowBackup(false)}/>
-      </Modal>}
-      {showAddSub&&<Modal title="Add Subject" onClose={()=>{setShowAddSub(false);setNewSubName('')}}>
-        <input value={newSubName} onChange={e=>setNewSubName(e.target.value)} placeholder="e.g. Theory of Computation" onKeyDown={e=>e.key==='Enter'&&addSubject()} autoFocus/>
-        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
-          <button onClick={()=>{setShowAddSub(false);setNewSubName('')}} style={{background:'none',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'7px 14px',fontSize:13}}>Cancel</button>
-          <button onClick={addSubject} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:7,color:'#fff',padding:'7px 14px',fontSize:13,fontWeight:700}}>Add</button>
-        </div>
-      </Modal>}
-      {showAddCh&&sub&&<Modal title={`Add Chapter to ${sub.name}`} onClose={()=>{setShowAddCh(false);setNewChName('')}}>
-        <input value={newChName} onChange={e=>setNewChName(e.target.value)} placeholder="Chapter name" onKeyDown={e=>e.key==='Enter'&&addChapter()} autoFocus/>
-        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
-          <button onClick={()=>{setShowAddCh(false);setNewChName('')}} style={{background:'none',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'7px 14px',fontSize:13}}>Cancel</button>
-          <button onClick={addChapter} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:7,color:'#fff',padding:'7px 14px',fontSize:13,fontWeight:700}}>Add</button>
-        </div>
-      </Modal>}
-      {showDelCh&&sub&&<Modal title={`Delete Chapter from ${sub.name}`} onClose={()=>setShowDelCh(false)}>
-        <p style={{fontSize:12,color:'#64748b',marginBottom:12}}>Select chapter to delete. Questions won't be deleted.</p>
-        <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:300,overflowY:'auto'}}>
-          {sub.chapters.map(ch=>(
-            <div key={ch} style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'#131929',borderRadius:8,padding:'9px 14px'}}>
-              <span style={{fontSize:13,color:'#e2e8f0'}}>{ch}</span>
-              <button onClick={()=>{delChapter(ch);setShowDelCh(false)}} style={{background:'#ef444415',border:'1px solid #ef444440',borderRadius:6,color:'#ef4444',padding:'4px 10px',fontSize:11}}>Delete</button>
-            </div>
-          ))}
-        </div>
-        <div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}>
-          <button onClick={()=>setShowDelCh(false)} style={{background:'none',border:'1px solid #1e2540',borderRadius:7,color:'#64748b',padding:'7px 14px',fontSize:13}}>Cancel</button>
-        </div>
-      </Modal>}
-    </div>
-  )
+  }, [mistakes, view, selSub, selChapter, search, filterM]);
+  const visP = useMemo(() => {
+    let qs = pyqs;
+    if (view === 'chapter-p') qs = qs.filter(q => q.subject === selSub && q.chapter === selChapter);else if (view === 'all-p' || view === 'search') {
+      if (filterP.subject) qs = qs.filter(q => q.subject === filterP.subject);
+      if (filterP.chapter) qs = qs.filter(q => q.chapter === filterP.chapter);
+      if (filterP.year) qs = qs.filter(q => q.year?.toLowerCase().includes(filterP.year.toLowerCase()));
+      if (filterP.status) qs = qs.filter(q => q.status === filterP.status);
+      if (filterP.important) qs = qs.filter(q => q.isImportant);
+      if (filterP.doubt) qs = qs.filter(q => q.isDoubt);
+    }
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      qs = qs.filter(q => q.qNum?.toLowerCase().includes(s) || q.year?.toLowerCase().includes(s) || q.tags?.some(t => t.includes(s)) || q.notes?.toLowerCase().includes(s) || q.pageRef?.toLowerCase().includes(s));
+    }
+    return qs;
+  }, [pyqs, view, selSub, selChapter, search, filterP]);
+  const saveM = q => {
+    setMistakes(p => {
+      const i = p.findIndex(x => x.id === q.id);
+      return i >= 0 ? p.map(x => x.id === q.id ? q : x) : [q, ...p];
+    });
+  };
+  const saveP = q => {
+    setPyqs(p => {
+      const i = p.findIndex(x => x.id === q.id);
+      return i >= 0 ? p.map(x => x.id === q.id ? q : x) : [q, ...p];
+    });
+  };
+  const delM = async id => {
+    const q = mistakes.find(x => x.id === id);
+    if (q?.imageKey) await ImgDB.remove(q.imageKey);
+    for (const b of q?.explanationBlocks || []) if (b.imageKey) await ImgDB.remove(b.imageKey);
+    setMistakes(p => p.filter(x => x.id !== id));
+    setViewM(null);
+  };
+  const delP = async id => {
+    const q = pyqs.find(x => x.id === id);
+    if (q?.imageKey) await ImgDB.remove(q.imageKey);
+    setPyqs(p => p.filter(x => x.id !== id));
+    setViewP(null);
+  };
+  const addSubject = () => {
+    if (!newSubName.trim()) return;
+    const colors = ['#818cf8', '#34d399', '#f472b6', '#38bdf8', '#fb923c', '#a78bfa', '#22d3ee', '#fbbf24'];
+    setSubjects(p => [...p, {
+      id: 's' + Date.now(),
+      name: newSubName.trim(),
+      color: colors[p.length % colors.length],
+      chapters: []
+    }]);
+    setNewSubName('');
+    setShowAddSub(false);
+  };
+  const addChapter = () => {
+    if (!newChName.trim() || !selSub) return;
+    setSubjects(p => p.map(s => s.id === selSub ? {
+      ...s,
+      chapters: [...s.chapters, newChName.trim()]
+    } : s));
+    setNewChName('');
+    setShowAddCh(false);
+  };
+  const delChapter = ch => {
+    if (!window.confirm(`Delete chapter "${ch}"?`)) return;
+    setSubjects(p => p.map(s => s.id === selSub ? {
+      ...s,
+      chapters: s.chapters.filter(c => c !== ch)
+    } : s));
+  };
+  const isSearch = search.trim().length > 0;
+  if (!ready) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: 12,
+      background: '#0a0d14'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      border: '3px solid #1e2540',
+      borderTopColor: '#6366f1',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite'
+    }
+  }), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: '#475569',
+      fontSize: 13
+    }
+  }, "Loading MistakeVault..."), /*#__PURE__*/React.createElement("style", null, `@keyframes spin{to{transform:rotate(360deg)}}`));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      height: '100vh',
+      background: '#0a0d14',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: sidebarOpen ? 238 : 52,
+      background: '#060912',
+      borderRight: '1px solid #0d1120',
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0,
+      transition: 'width .2s',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '13px 10px',
+      borderBottom: '1px solid #0d1120',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSidebarOpen(o => !o),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#6366f1',
+      fontSize: 16,
+      padding: '5px 7px',
+      borderRadius: 6,
+      flexShrink: 0
+    }
+  }, "\u2630"), sidebarOpen && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: '#818cf8',
+      letterSpacing: .5
+    }
+  }, "MistakeVault"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      color: '#374151',
+      display: 'block'
+    }
+  }, "GATE Prep Tracker"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '6px 0'
+    }
+  }, [{
+    id: 'dashboard',
+    icon: '◈',
+    label: 'Dashboard',
+    badge: 0
+  }, {
+    id: 'all-m',
+    icon: '⚡',
+    label: 'All Mistakes',
+    badge: mistakes.length,
+    bc: '#6366f1'
+  }, {
+    id: 'all-p',
+    icon: '📚',
+    label: 'All PYQs',
+    badge: pyqs.length,
+    bc: '#06b6d4'
+  }].map(({
+    id,
+    icon,
+    label,
+    badge,
+    bc
+  }) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => nav(id, null, null, null),
+    style: {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9,
+      padding: '9px 12px',
+      background: view === id ? '#6366f115' : 'none',
+      border: 'none',
+      color: view === id ? '#818cf8' : '#475569',
+      fontSize: 12,
+      textAlign: 'left',
+      cursor: 'pointer',
+      borderLeft: view === id ? '2px solid #6366f1' : '2px solid transparent'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 18,
+      textAlign: 'center',
+      flexShrink: 0
+    }
+  }, icon), sidebarOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }, label), badge > 0 && /*#__PURE__*/React.createElement(Badge, {
+    count: badge,
+    color: bc || '#6366f1'
+  })))), sidebarOpen && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowBackup(true),
+    style: {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9,
+      padding: '9px 12px',
+      background: 'none',
+      border: 'none',
+      color: '#f59e0b',
+      fontSize: 12,
+      textAlign: 'left',
+      cursor: 'pointer',
+      borderLeft: '2px solid transparent'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 18,
+      textAlign: 'center',
+      flexShrink: 0
+    }
+  }, "\uD83D\uDCBE"), /*#__PURE__*/React.createElement("span", null, "Backup / Restore")), sidebarOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '10px 12px 4px',
+      fontSize: 9,
+      color: '#374151',
+      fontWeight: 700,
+      letterSpacing: 1,
+      textTransform: 'uppercase'
+    }
+  }, "Subjects"), subjects.map(s => {
+    const mCnt = mistakes.filter(q => q.subject === s.id).length;
+    const pCnt = pyqs.filter(q => q.subject === s.id).length;
+    const active = ['subject', 'mode', 'chapter-m', 'chapter-p'].includes(view) && selSub === s.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: s.id,
+      onClick: () => nav('subject', s.id, null, null),
+      style: {
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        padding: '8px 12px',
+        background: active ? s.color + '12' : 'none',
+        border: 'none',
+        color: active ? s.color : '#475569',
+        fontSize: 12,
+        textAlign: 'left',
+        cursor: 'pointer',
+        borderLeft: active ? `2px solid ${s.color}` : '2px solid transparent',
+        transition: 'background .15s'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 7,
+        height: 7,
+        borderRadius: '50%',
+        background: s.color,
+        flexShrink: 0,
+        marginLeft: 4
+      }
+    }), sidebarOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, s.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 3
+      }
+    }, mCnt > 0 && /*#__PURE__*/React.createElement(Badge, {
+      count: mCnt,
+      color: s.color
+    }), pCnt > 0 && /*#__PURE__*/React.createElement(Badge, {
+      count: pCnt,
+      color: "#06b6d4"
+    }))));
+  }), sidebarOpen && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddSub(true),
+    style: {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9,
+      padding: '8px 12px',
+      background: 'none',
+      border: 'none',
+      color: '#374151',
+      fontSize: 12,
+      textAlign: 'left',
+      cursor: 'pointer',
+      borderLeft: '2px solid transparent'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 4
+    }
+  }, "+"), /*#__PURE__*/React.createElement("span", null, "Add Subject")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '10px 18px',
+      borderBottom: '1px solid #0d1120',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      background: '#060912',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: 'absolute',
+      left: 11,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      color: '#374151',
+      fontSize: 14,
+      pointerEvents: 'none'
+    }
+  }, "\u2315"), /*#__PURE__*/React.createElement("input", {
+    value: search,
+    onChange: e => setSearch(e.target.value),
+    placeholder: "Search questions, PYQs, tags, notes...",
+    style: {
+      paddingLeft: 32,
+      fontSize: 13
+    }
+  })), !isSearch && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddM(true),
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 12,
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      flexShrink: 0
+    }
+  }, "+ Mistake"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddP(true),
+    style: {
+      background: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 12,
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      flexShrink: 0
+    }
+  }, "+ PYQ")), isSearch && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSearch(''),
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 8,
+      color: '#64748b',
+      padding: '7px 12px',
+      fontSize: 12,
+      flexShrink: 0
+    }
+  }, "\u2715 Clear")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: 20
+    }
+  }, isSearch && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 16,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "Search: \"", search, "\""), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginBottom: 16
+    }
+  }, visM.length, " mistakes \xB7 ", visP.length, " PYQs"), visM.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#6366f1',
+      marginBottom: 10,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "Mistakes (", visM.length, ")"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10,
+      marginBottom: 20
+    }
+  }, visM.map(q => /*#__PURE__*/React.createElement(MistakeCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewM(q)
+  })))), visP.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: '#06b6d4',
+      marginBottom: 10,
+      textTransform: 'uppercase',
+      letterSpacing: .5
+    }
+  }, "PYQs (", visP.length, ")"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10
+    }
+  }, visP.map(q => /*#__PURE__*/React.createElement(PYQCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewP(q)
+  })))), visM.length === 0 && visP.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: 60,
+      color: '#374151'
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 32,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDD0D"), /*#__PURE__*/React.createElement("p", null, "No results for \"", search, "\""))), !isSearch && view === 'dashboard' && /*#__PURE__*/React.createElement(Dashboard, {
+    mistakes: mistakes,
+    pyqs: pyqs,
+    subjects: subjects,
+    onBackup: () => setShowBackup(true)
+  }), !isSearch && view === 'all-m' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      flexWrap: 'wrap',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      fontWeight: 700
+    }
+  }, "All Mistakes"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, visM.length, " questions")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 7,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    value: filterM.subject,
+    onChange: e => setFilterM(f => ({
+      ...f,
+      subject: e.target.value
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Subjects"), subjects.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s.id,
+    value: s.id
+  }, s.name))), /*#__PURE__*/React.createElement("select", {
+    value: filterM.mistakeType,
+    onChange: e => setFilterM(f => ({
+      ...f,
+      mistakeType: e.target.value
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Types"), MISTAKE_TYPES.map(m => /*#__PURE__*/React.createElement("option", {
+    key: m
+  }, m))), /*#__PURE__*/React.createElement("select", {
+    value: filterM.difficulty,
+    onChange: e => setFilterM(f => ({
+      ...f,
+      difficulty: e.target.value
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Difficulty"), DIFFICULTIES.map(d => /*#__PURE__*/React.createElement("option", {
+    key: d
+  }, d))), /*#__PURE__*/React.createElement("select", {
+    value: filterM.status,
+    onChange: e => setFilterM(f => ({
+      ...f,
+      status: e.target.value
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Status"), MISTAKE_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s))))), visM.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    type: "mistake"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10
+    }
+  }, visM.map(q => /*#__PURE__*/React.createElement(MistakeCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewM(q)
+  })))), !isSearch && view === 'all-p' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      flexWrap: 'wrap',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      fontWeight: 700,
+      color: '#22d3ee'
+    }
+  }, "All PYQs"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, visP.length, " entries")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 7,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("select", {
+    value: filterP.subject,
+    onChange: e => setFilterP(f => ({
+      ...f,
+      subject: e.target.value,
+      chapter: ''
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Subjects"), subjects.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s.id,
+    value: s.id
+  }, s.name))), /*#__PURE__*/React.createElement("input", {
+    value: filterP.year,
+    onChange: e => setFilterP(f => ({
+      ...f,
+      year: e.target.value
+    })),
+    placeholder: "Filter by year/exam",
+    style: {
+      width: 130,
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }), /*#__PURE__*/React.createElement("select", {
+    value: filterP.status,
+    onChange: e => setFilterP(f => ({
+      ...f,
+      status: e.target.value
+    })),
+    style: {
+      width: 'auto',
+      fontSize: 11,
+      padding: '5px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All Status"), PYQ_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s
+  }, s))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilterP(f => ({
+      ...f,
+      important: !f.important
+    })),
+    style: {
+      background: filterP.important ? '#f59e0b22' : '#131929',
+      border: `1px solid ${filterP.important ? '#f59e0b' : '#1e2540'}`,
+      borderRadius: 7,
+      color: filterP.important ? '#f59e0b' : '#64748b',
+      padding: '5px 10px',
+      fontSize: 11
+    }
+  }, "\u2B50"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilterP(f => ({
+      ...f,
+      doubt: !f.doubt
+    })),
+    style: {
+      background: filterP.doubt ? '#ef444422' : '#131929',
+      border: `1px solid ${filterP.doubt ? '#ef4444' : '#1e2540'}`,
+      borderRadius: 7,
+      color: filterP.doubt ? '#ef4444' : '#64748b',
+      padding: '5px 10px',
+      fontSize: 11
+    }
+  }, "\u2753"))), visP.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    type: "pyq"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10
+    }
+  }, visP.map(q => /*#__PURE__*/React.createElement(PYQCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewP(q)
+  })))), !isSearch && view === 'subject' && sub && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 10,
+      height: 10,
+      borderRadius: '50%',
+      background: sub.color,
+      display: 'inline-block'
+    }
+  }), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 20,
+      fontWeight: 800,
+      color: sub.color
+    }
+  }, sub.name)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569'
+    }
+  }, mistakes.filter(q => q.subject === sub.id).length, " mistakes \xB7 ", pyqs.filter(q => q.subject === sub.id).length, " PYQs")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 16,
+      maxWidth: 640
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => nav('mode', selSub, 'mistake', null),
+    style: {
+      background: 'linear-gradient(135deg,#0d0f1f,#131629)',
+      border: '1px solid #6366f130',
+      borderRadius: 14,
+      padding: 24,
+      cursor: 'pointer',
+      transition: 'transform .15s,border-color .2s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.transform = 'translateY(-3px)';
+      e.currentTarget.style.borderColor = '#6366f1';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.borderColor = '#6366f130';
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      marginBottom: 12
+    }
+  }, "\u26A1"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 15,
+      fontWeight: 800,
+      color: '#818cf8',
+      marginBottom: 6
+    }
+  }, "Test Series Mistakes"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginBottom: 14,
+      lineHeight: 1.5
+    }
+  }, "Track wrong answers from mock tests. Upload screenshots, write explanations."), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 22,
+      fontWeight: 800,
+      color: '#6366f1'
+    }
+  }, mistakes.filter(q => q.subject === sub.id).length), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: '#475569',
+      marginLeft: 6
+    }
+  }, "saved")), /*#__PURE__*/React.createElement("div", {
+    onClick: () => nav('mode', selSub, 'pyq', null),
+    style: {
+      background: 'linear-gradient(135deg,#060f1a,#091525)',
+      border: '1px solid #06b6d430',
+      borderRadius: 14,
+      padding: 24,
+      cursor: 'pointer',
+      transition: 'transform .15s,border-color .2s'
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.transform = 'translateY(-3px)';
+      e.currentTarget.style.borderColor = '#06b6d4';
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.borderColor = '#06b6d430';
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDCDA"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      fontSize: 15,
+      fontWeight: 800,
+      color: '#22d3ee',
+      marginBottom: 6
+    }
+  }, "PYQ Tracker"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginBottom: 14,
+      lineHeight: 1.5
+    }
+  }, "Log previous year questions. Track year, solution location, notebook reference."), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 22,
+      fontWeight: 800,
+      color: '#06b6d4'
+    }
+  }, pyqs.filter(q => q.subject === sub.id).length), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: '#475569',
+      marginLeft: 6
+    }
+  }, "saved")))), !isSearch && view === 'mode' && sub && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => nav('subject', selSub, null, null),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#475569',
+      fontSize: 12,
+      cursor: 'pointer',
+      padding: 0,
+      marginBottom: 16
+    }
+  }, "\u2190 ", sub.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+      flexWrap: 'wrap',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: selMode === 'pyq' ? '#22d3ee' : '#818cf8'
+    }
+  }, selMode === 'pyq' ? '📚 PYQ Tracker' : '⚡ Test Series Mistakes', " \u2014 ", sub.name), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, sub.chapters.length, " chapters")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddCh(true),
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '6px 12px',
+      fontSize: 12
+    }
+  }, "+ Chapter"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDelCh(true),
+    style: {
+      background: '#131929',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '6px 12px',
+      fontSize: 12
+    }
+  }, "\u2212 Chapter"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
+      gap: 10
+    }
+  }, sub.chapters.map(ch => {
+    const cnt = selMode === 'pyq' ? pyqs.filter(q => q.subject === sub.id && q.chapter === ch).length : mistakes.filter(q => q.subject === sub.id && q.chapter === ch).length;
+    const accent = selMode === 'pyq' ? '#06b6d4' : sub.color;
+    return /*#__PURE__*/React.createElement("div", {
+      key: ch,
+      onClick: () => nav(selMode === 'pyq' ? 'chapter-p' : 'chapter-m', selSub, selMode, ch),
+      style: {
+        background: selMode === 'pyq' ? '#060f1a' : '#0d1120',
+        border: `1px solid ${selMode === 'pyq' ? '#0e2040' : '#1a1f35'}`,
+        borderRadius: 10,
+        padding: 14,
+        cursor: 'pointer',
+        transition: 'border-color .15s,transform .1s'
+      },
+      onMouseEnter: e => {
+        e.currentTarget.style.borderColor = accent;
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      },
+      onMouseLeave: e => {
+        e.currentTarget.style.borderColor = selMode === 'pyq' ? '#0e2040' : '#1a1f35';
+        e.currentTarget.style.transform = 'none';
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600,
+        color: '#e2e8f0',
+        marginBottom: 10,
+        lineHeight: 1.3
+      }
+    }, ch), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: '#475569'
+      }
+    }, cnt, " saved"), cnt > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        background: accent + '22',
+        color: accent,
+        padding: '1px 6px',
+        borderRadius: 5,
+        fontWeight: 700
+      }
+    }, cnt)));
+  }))), !isSearch && view === 'chapter-m' && sub && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => nav('mode', selSub, 'mistake', null),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#475569',
+      fontSize: 12,
+      cursor: 'pointer',
+      padding: 0,
+      marginBottom: 6
+    }
+  }, "\u2190 ", sub.name, " / Test Series"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      flexWrap: 'wrap',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      fontWeight: 700
+    }
+  }, selChapter), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, visM.length, " mistakes")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddM(true),
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "+ Add Mistake")), visM.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    type: "mistake"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10
+    }
+  }, visM.map(q => /*#__PURE__*/React.createElement(MistakeCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewM(q)
+  })))), !isSearch && view === 'chapter-p' && sub && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    onClick: () => nav('mode', selSub, 'pyq', null),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#475569',
+      fontSize: 12,
+      cursor: 'pointer',
+      padding: 0,
+      marginBottom: 6
+    }
+  }, "\u2190 ", sub.name, " / PYQ Tracker"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      flexWrap: 'wrap',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 17,
+      fontWeight: 700,
+      color: '#22d3ee'
+    }
+  }, selChapter), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2
+    }
+  }, visP.length, " PYQs")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAddP(true),
+    style: {
+      background: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
+      border: 'none',
+      borderRadius: 8,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "+ Add PYQ")), visP.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    type: "pyq"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',
+      gap: 10
+    }
+  }, visP.map(q => /*#__PURE__*/React.createElement(PYQCard, {
+    key: q.id,
+    q: q,
+    subjects: subjects,
+    onClick: () => setViewP(q)
+  })))))), (showAddM || editM) && /*#__PURE__*/React.createElement(Modal, {
+    title: editM ? 'Edit Mistake' : 'Add Mistake',
+    onClose: () => {
+      setShowAddM(false);
+      setEditM(null);
+    },
+    wide: true
+  }, /*#__PURE__*/React.createElement(MistakeForm, {
+    q: editM,
+    subjects: subjects,
+    defaultSubject: selSub,
+    defaultChapter: view === 'chapter-m' ? selChapter : '',
+    onSave: q => {
+      saveM(q);
+      setEditM(null);
+      setShowAddM(false);
+    },
+    onClose: () => {
+      setShowAddM(false);
+      setEditM(null);
+    }
+  })), (showAddP || editP) && /*#__PURE__*/React.createElement(Modal, {
+    title: editP ? 'Edit PYQ' : 'Add PYQ',
+    onClose: () => {
+      setShowAddP(false);
+      setEditP(null);
+    },
+    wide: true
+  }, /*#__PURE__*/React.createElement(PYQForm, {
+    q: editP,
+    subjects: subjects,
+    defaultSubject: selSub,
+    defaultChapter: view === 'chapter-p' ? selChapter : '',
+    onSave: q => {
+      saveP(q);
+      setEditP(null);
+      setShowAddP(false);
+    },
+    onClose: () => {
+      setShowAddP(false);
+      setEditP(null);
+    }
+  })), viewM && !editM && /*#__PURE__*/React.createElement(Modal, {
+    title: viewM.title,
+    onClose: () => setViewM(null),
+    wide: true
+  }, /*#__PURE__*/React.createElement(MistakeDetail, {
+    q: viewM,
+    subjects: subjects,
+    onClose: () => setViewM(null),
+    onEdit: q => {
+      setEditM(q);
+      setViewM(null);
+    },
+    onDelete: delM
+  })), viewP && !editP && /*#__PURE__*/React.createElement(Modal, {
+    title: `${viewP.qNum}${viewP.year ? ' — ' + viewP.year : ''}`,
+    onClose: () => setViewP(null),
+    wide: true
+  }, /*#__PURE__*/React.createElement(PYQDetail, {
+    q: viewP,
+    subjects: subjects,
+    onClose: () => setViewP(null),
+    onEdit: q => {
+      setEditP(q);
+      setViewP(null);
+    },
+    onDelete: delP
+  })), showBackup && /*#__PURE__*/React.createElement(Modal, {
+    title: "\uD83D\uDCBE Backup & Restore",
+    onClose: () => setShowBackup(false)
+  }, /*#__PURE__*/React.createElement(BackupModal, {
+    mistakes: mistakes,
+    pyqs: pyqs,
+    subjects: subjects,
+    setSubjects: setSubjects,
+    setMistakes: setMistakes,
+    setPyqs: setPyqs,
+    onClose: () => setShowBackup(false)
+  })), showAddSub && /*#__PURE__*/React.createElement(Modal, {
+    title: "Add Subject",
+    onClose: () => {
+      setShowAddSub(false);
+      setNewSubName('');
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newSubName,
+    onChange: e => setNewSubName(e.target.value),
+    placeholder: "e.g. Theory of Computation",
+    onKeyDown: e => e.key === 'Enter' && addSubject(),
+    autoFocus: true
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      justifyContent: 'flex-end',
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowAddSub(false);
+      setNewSubName('');
+    },
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '7px 14px',
+      fontSize: 13
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: addSubject,
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 7,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "Add"))), showAddCh && sub && /*#__PURE__*/React.createElement(Modal, {
+    title: `Add Chapter to ${sub.name}`,
+    onClose: () => {
+      setShowAddCh(false);
+      setNewChName('');
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newChName,
+    onChange: e => setNewChName(e.target.value),
+    placeholder: "Chapter name",
+    onKeyDown: e => e.key === 'Enter' && addChapter(),
+    autoFocus: true
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      justifyContent: 'flex-end',
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowAddCh(false);
+      setNewChName('');
+    },
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '7px 14px',
+      fontSize: 13
+    }
+  }, "Cancel"), /*#__PURE__*/React.createElement("button", {
+    onClick: addChapter,
+    style: {
+      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      border: 'none',
+      borderRadius: 7,
+      color: '#fff',
+      padding: '7px 14px',
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "Add"))), showDelCh && sub && /*#__PURE__*/React.createElement(Modal, {
+    title: `Delete Chapter from ${sub.name}`,
+    onClose: () => setShowDelCh(false)
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 12,
+      color: '#64748b',
+      marginBottom: 12
+    }
+  }, "Select chapter to delete. Questions won't be deleted."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6,
+      maxHeight: 300,
+      overflowY: 'auto'
+    }
+  }, sub.chapters.map(ch => /*#__PURE__*/React.createElement("div", {
+    key: ch,
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      background: '#131929',
+      borderRadius: 8,
+      padding: '9px 14px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: '#e2e8f0'
+    }
+  }, ch), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      delChapter(ch);
+      setShowDelCh(false);
+    },
+    style: {
+      background: '#ef444415',
+      border: '1px solid #ef444440',
+      borderRadius: 6,
+      color: '#ef4444',
+      padding: '4px 10px',
+      fontSize: 11
+    }
+  }, "Delete")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDelCh(false),
+    style: {
+      background: 'none',
+      border: '1px solid #1e2540',
+      borderRadius: 7,
+      color: '#64748b',
+      padding: '7px 14px',
+      fontSize: 13
+    }
+  }, "Cancel"))));
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
 </script>
 </body>
 </html>
